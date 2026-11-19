@@ -242,6 +242,30 @@ class PostRideIntegrationTest {
         assertThat(corrected.getStatusCode()).as(corrected.getBody()).isEqualTo(HttpStatus.CREATED);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"8.8.8.8", "not-an-ip"})
+    @DisplayName("IT post() when an untrusted caller sends X-Forwarded-For should audit the address it came from")
+    void post_whenUntrustedCallerSendsForwardedFor_shouldAuditAddressItCameFrom(String forwardedFor) {
+        // given
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set(HttpHeaders.AUTHORIZATION, RIDER);
+        headers.set("Idempotency-Key", UUID.randomUUID().toString());
+        headers.set("X-Forwarded-For", forwardedFor);
+
+        // when
+        ResponseEntity<String> response = rest.postForEntity(
+                "/api/v1/rides",
+                new HttpEntity<>(BODY, headers),
+                String.class
+        );
+
+        // then
+        assertThat(response.getStatusCode()).as(response.getBody()).isEqualTo(HttpStatus.CREATED);
+        assertThat(jdbc.sql("SELECT host(origin_ip) FROM audit_records").query(String.class).single())
+                .isIn("127.0.0.1", "::1");
+    }
+
     @Test
     @DisplayName("IT post() when two keys are used should book two rides with two charges")
     void post_whenTwoKeysAreUsed_shouldBookTwoRidesWithTwoCharges() {

@@ -19,3 +19,8 @@ stripe:
 server:
   # the origin ip of a request is the client's, as reported by the proxies Tomcat trusts
   forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      # a regular expression of the proxy addresses whose X-Forwarded-For is believed; none unless the deployment
+      # names them, so a caller cannot write the address of its choice into the audit trail
+      internal-proxies: ${RIDE_TRUSTED_PROXIES:}
