@@ -6,5 +6,12 @@ public final class TestImages {
 
     public static final DockerImageName POSTGRES = DockerImageName.parse("postgres:17.12-alpine");
 
+    public static final DockerImageName STRIPE_MOCK = DockerImageName.parse("stripe/stripe-mock:v0.205.0");
+
+    /**
+     * The plain HTTP port of stripe-mock; 12112 serves HTTPS with a self-signed certificate.
+     */
+    public static final int STRIPE_MOCK_PORT = 12111;
+
     private TestImages() {}
 }

@@ -3,7 +3,7 @@ package io.github.idempotency.ride.audit;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.idempotency.ride.support.RequiresDocker;
-import io.github.idempotency.ride.support.SharedPostgres;
+import io.github.idempotency.ride.support.TestInfrastructure;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ class AuditRepositoryIntegrationTest {
 
     @DynamicPropertySource
     static void postgres(DynamicPropertyRegistry registry) {
-        SharedPostgres.register(registry);
+        TestInfrastructure.register(registry);
     }
 
     @BeforeEach

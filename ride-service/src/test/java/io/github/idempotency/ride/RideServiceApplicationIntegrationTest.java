@@ -1,7 +1,7 @@
 package io.github.idempotency.ride;
 
 import io.github.idempotency.ride.support.RequiresDocker;
-import io.github.idempotency.ride.support.SharedPostgres;
+import io.github.idempotency.ride.support.TestInfrastructure;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,7 +25,7 @@ class RideServiceApplicationIntegrationTest {
 
     @DynamicPropertySource
     static void postgres(DynamicPropertyRegistry registry) {
-        SharedPostgres.register(registry);
+        TestInfrastructure.register(registry);
     }
 
     @Test

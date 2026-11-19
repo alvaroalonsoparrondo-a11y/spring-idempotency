@@ -12,6 +12,10 @@ idempify:
   schema:
     mode: FLYWAY
 
+stripe:
+  api-key: ${STRIPE_API_KEY}
+  api-base: ${STRIPE_API_BASE:https://api.stripe.com}
+
 server:
   # the origin ip of a request is the client's, as reported by the proxies Tomcat trusts
   forward-headers-strategy: native
