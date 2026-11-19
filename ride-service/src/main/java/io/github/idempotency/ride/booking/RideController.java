@@ -3,6 +3,7 @@ package io.github.idempotency.ride.booking;
 import io.github.dmitriyiliyov.idempify.core.Idempotent;
 import io.github.dmitriyiliyov.idempify.core.ProcessorTypeToggle;
 import io.github.idempotency.ride.stripe.PaymentDeclinedException;
+import io.github.idempotency.ride.stripe.PaymentFailedException;
 import io.github.idempotency.ride.web.Caller;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -30,8 +31,8 @@ public class RideController {
     /**
      * Books and charges a ride once per Idempotency-Key. The charge cannot be rolled back, so the booking runs
      * outside the idempotency transaction, under a lock held longer than the slowest charge the Stripe client allows
-     * (two network retries over the connect and read timeouts). A declined card is kept on the record and answered
-     * to every repeat; any other failure releases the key for a retry.
+     * (two network retries over the connect and read timeouts). A declined card and a charge Stripe failed for good
+     * are kept on the record and answered to every repeat; any other failure releases the key for a retry.
      * <p>
      * The header is bound as an optional string so that idempify, not the binder, validates it and answers a
      * missing or malformed key with its own problem; by the time the body runs it is a canonical UUID.
@@ -42,7 +43,7 @@ public class RideController {
             processorType = ProcessorTypeToggle.EXTERNAL_NON_BLOCKING,
             lockTtl = 2,
             timeUnit = TimeUnit.MINUTES,
-            recordFor = PaymentDeclinedException.class
+            recordFor = {PaymentDeclinedException.class, PaymentFailedException.class}
     )
     public RideResponse create(@RequestAttribute(Caller.ATTRIBUTE) Caller caller,
                                @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,

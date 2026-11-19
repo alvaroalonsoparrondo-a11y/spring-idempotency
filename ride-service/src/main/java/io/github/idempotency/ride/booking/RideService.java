@@ -62,6 +62,7 @@ public class RideService {
      * @return the booked and charged ride
      * @throws IdempotencyKeyReusedException when the key already booked a different ride
      * @throws io.github.idempotency.ride.stripe.PaymentDeclinedException when Stripe declined the card
+     * @throws io.github.idempotency.ride.stripe.PaymentFailedException when Stripe failed the charge for good
      * @throws io.github.idempotency.ride.stripe.PaymentProviderException when Stripe could not complete the charge
      */
     public RideResponse create(User user, String originIp, UUID idempotencyKey, CreateRideRequest request) {

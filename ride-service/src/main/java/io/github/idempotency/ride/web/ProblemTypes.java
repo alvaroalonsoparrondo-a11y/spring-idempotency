@@ -19,6 +19,8 @@ public final class ProblemTypes {
 
     public static final URI PAYMENT_DECLINED = URI.create(BASE + "payment-declined");
 
+    public static final URI PAYMENT_FAILED = URI.create(BASE + "payment-failed");
+
     public static final URI PAYMENT_PROVIDER_UNAVAILABLE = URI.create(BASE + "payment-provider-unavailable");
 
     public static final URI INTERNAL_ERROR = URI.create(BASE + "internal-error");

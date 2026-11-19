@@ -3,6 +3,7 @@ package io.github.idempotency.ride.web;
 import io.github.idempotency.ride.booking.IdempotencyKeyReusedException;
 import io.github.idempotency.ride.booking.RideController;
 import io.github.idempotency.ride.stripe.PaymentDeclinedException;
+import io.github.idempotency.ride.stripe.PaymentFailedException;
 import io.github.idempotency.ride.stripe.PaymentProviderException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -46,6 +47,12 @@ public class RideControllerAdvice extends ResponseEntityExceptionHandler {
                                                         HttpServletRequest request) {
         log.debug("Payment declined for {}", request.getRequestURI());
         return Problems.paymentDeclined(exception.getMessage(), request.getRequestURI(), clock.instant());
+    }
+
+    @ExceptionHandler(PaymentFailedException.class)
+    public ProblemDetail handlePaymentFailedException(PaymentFailedException exception, HttpServletRequest request) {
+        log.error("Payment failed for {}", request.getRequestURI(), exception);
+        return Problems.paymentFailed(request.getRequestURI(), clock.instant());
     }
 
     @ExceptionHandler(PaymentProviderException.class)

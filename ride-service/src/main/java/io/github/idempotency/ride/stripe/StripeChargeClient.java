@@ -1,7 +1,10 @@
 package io.github.idempotency.ride.stripe;
 
 import com.stripe.StripeClient;
+import com.stripe.exception.ApiConnectionException;
 import com.stripe.exception.CardException;
+import com.stripe.exception.IdempotencyException;
+import com.stripe.exception.RateLimitException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Charge;
 import com.stripe.net.RequestOptions;
@@ -32,7 +35,8 @@ public class StripeChargeClient {
      * @param idempotencyKey the key of the request the charge is made for
      * @return the id of the Stripe charge
      * @throws PaymentDeclinedException  when Stripe declined the card
-     * @throws PaymentProviderException  when Stripe could not be reached or failed to answer
+     * @throws PaymentFailedException    when Stripe failed the charge in a way a retry would only repeat
+     * @throws PaymentProviderException  when Stripe could not be reached or asked to retry later
      */
     public String charge(String customerId, long amount, String currency, String description, UUID idempotencyKey) {
         ChargeCreateParams params = ChargeCreateParams.builder()
@@ -50,8 +54,31 @@ public class StripeChargeClient {
         } catch (CardException e) {
             throw new PaymentDeclinedException(declinedMessage(e));
         } catch (StripeException e) {
-            throw new PaymentProviderException("Stripe did not complete the charge", e);
+            if (isRetryable(e)) {
+                throw new PaymentProviderException("Stripe did not complete the charge", e);
+            }
+            throw new PaymentFailedException(failedMessage(e));
         }
+    }
+
+    /**
+     * Only a failure that leaves nothing recorded under the key is worth a retry: the request never got an answer,
+     * was rate limited, or met the same key still in flight. Stripe records any other answer under the key and
+     * repeats it to every retry for as long as it keeps the key.
+     */
+    private static boolean isRetryable(StripeException e) {
+        if (e instanceof ApiConnectionException || e instanceof RateLimitException) {
+            return true;
+        }
+        return e instanceof IdempotencyException && Integer.valueOf(409).equals(e.getStatusCode());
+    }
+
+    private static String failedMessage(StripeException e) {
+        return "Stripe failed the charge: %s (status %s, request %s)".formatted(
+                e.getClass().getSimpleName(),
+                e.getStatusCode(),
+                e.getRequestId()
+        );
     }
 
     private static String declinedMessage(CardException e) {

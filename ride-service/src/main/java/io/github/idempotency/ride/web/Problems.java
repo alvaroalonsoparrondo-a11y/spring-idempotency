@@ -57,6 +57,17 @@ final class Problems {
         );
     }
 
+    static ProblemDetail paymentFailed(String instance, Instant timestamp) {
+        return problem(
+                HttpStatus.BAD_GATEWAY,
+                ProblemTypes.PAYMENT_FAILED,
+                "Payment failed",
+                "The payment provider failed the charge. A retry under the same Idempotency-Key gets the same answer.",
+                instance,
+                timestamp
+        );
+    }
+
     static ProblemDetail paymentProviderUnavailable(String instance, Instant timestamp) {
         return problem(
                 HttpStatus.SERVICE_UNAVAILABLE,

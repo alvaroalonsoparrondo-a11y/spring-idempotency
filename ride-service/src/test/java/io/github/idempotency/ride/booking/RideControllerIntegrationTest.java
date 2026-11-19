@@ -2,6 +2,7 @@ package io.github.idempotency.ride.booking;
 
 import io.github.dmitriyiliyov.idempify.core.IdempotencyKeyException;
 import io.github.idempotency.ride.stripe.PaymentDeclinedException;
+import io.github.idempotency.ride.stripe.PaymentFailedException;
 import io.github.idempotency.ride.stripe.PaymentProviderException;
 import io.github.idempotency.ride.web.Caller;
 import io.github.idempotency.ride.web.IdempifyAdviceConfig;
@@ -151,6 +152,21 @@ class RideControllerIntegrationTest {
                 .andExpect(jsonPath("$.type").value(ProblemTypes.PAYMENT_PROVIDER_UNAVAILABLE.toString()))
                 .andExpect(jsonPath("$.detail")
                         .value("The payment could not be completed. Retry the request with the same Idempotency-Key."));
+    }
+
+    @Test
+    @DisplayName("IT create() when Stripe fails the charge for good should answer 502 saying a retry repeats it")
+    void create_whenStripeFailsChargeForGood_shouldAnswerBadGatewaySayingRetryRepeatsIt() throws Exception {
+        // given
+        when(rideService.create(eq(USER), eq("203.0.113.7"), eq(KEY), any()))
+                .thenThrow(new PaymentFailedException("Stripe failed the charge: InvalidRequestException"));
+
+        // when / then
+        post(BODY).andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.type").value(ProblemTypes.PAYMENT_FAILED.toString()))
+                .andExpect(jsonPath("$.detail").value(
+                        "The payment provider failed the charge. A retry under the same Idempotency-Key gets the same answer."
+                ));
     }
 
     @Test

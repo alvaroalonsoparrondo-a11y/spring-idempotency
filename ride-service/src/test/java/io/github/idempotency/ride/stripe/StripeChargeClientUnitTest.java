@@ -2,7 +2,13 @@ package io.github.idempotency.ride.stripe;
 
 import com.stripe.StripeClient;
 import com.stripe.exception.ApiConnectionException;
+import com.stripe.exception.ApiException;
+import com.stripe.exception.AuthenticationException;
 import com.stripe.exception.CardException;
+import com.stripe.exception.IdempotencyException;
+import com.stripe.exception.InvalidRequestException;
+import com.stripe.exception.RateLimitException;
+import com.stripe.exception.StripeException;
 import com.stripe.model.Charge;
 import com.stripe.net.RequestOptions;
 import com.stripe.param.ChargeCreateParams;
@@ -12,11 +18,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -140,6 +150,40 @@ class StripeChargeClientUnitTest {
         verify(charges).create(any(ChargeCreateParams.class), any(RequestOptions.class));
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("retryableFailures")
+    @DisplayName("UT charge() when Stripe asks to come back later should throw PaymentProviderException")
+    void charge_whenStripeAsksToComeBackLater_shouldThrowPaymentProviderException(String name, StripeException cause)
+            throws Exception {
+        // given
+        givenChargeService();
+        when(charges.create(any(ChargeCreateParams.class), any(RequestOptions.class))).thenThrow(cause);
+
+        // when / then
+        assertThatThrownBy(() -> tested.charge("cus_rider", 2000L, "usd", "Ride 7", KEY))
+                .isInstanceOf(PaymentProviderException.class)
+                .hasCause(cause);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("finalFailures")
+    @DisplayName("UT charge() when Stripe fails the charge in a way a retry would repeat should throw PaymentFailedException")
+    void charge_whenStripeFailsChargeInWayRetryWouldRepeat_shouldThrowPaymentFailedException(String name,
+                                                                                             StripeException cause)
+            throws Exception {
+        // given
+        givenChargeService();
+        when(charges.create(any(ChargeCreateParams.class), any(RequestOptions.class))).thenThrow(cause);
+
+        // when / then
+        assertThatThrownBy(() -> tested.charge("cus_rider", 2000L, "usd", "Ride 7", KEY))
+                .isInstanceOf(PaymentFailedException.class)
+                .hasMessage("Stripe failed the charge: %s (status %s, request req_1)".formatted(
+                        cause.getClass().getSimpleName(),
+                        cause.getStatusCode()
+                ));
+    }
+
     @Test
     @DisplayName("UT constructor when stripe is null should throw NullPointerException")
     void constructor_whenStripeIsNull_shouldThrowNullPointerException() {
@@ -152,6 +196,24 @@ class StripeChargeClientUnitTest {
     private void givenChargeService() {
         when(stripe.v1()).thenReturn(v1);
         when(v1.charges()).thenReturn(charges);
+    }
+
+    static Stream<Arguments> retryableFailures() {
+        return Stream.of(
+                Arguments.of("rate limited", new RateLimitException("slow down", null, "req_1", "rate_limit", 429, null)),
+                Arguments.of("key in flight", new IdempotencyException("in use", "req_1", "idempotency_key_in_use", 409))
+        );
+    }
+
+    static Stream<Arguments> finalFailures() {
+        return Stream.of(
+                Arguments.of("no such customer",
+                        new InvalidRequestException("No such customer", "customer", "req_1", "resource_missing", 400, null)),
+                Arguments.of("key reused with other parameters",
+                        new IdempotencyException("params differ", "req_1", "idempotency_error", 400)),
+                Arguments.of("invalid api key", new AuthenticationException("bad key", "req_1", null, 401)),
+                Arguments.of("error on Stripe's side", new ApiException("oops", "req_1", null, 500, null))
+        );
     }
 
     private static CardException cardException(String code, String declineCode) {
