@@ -187,6 +187,31 @@ class PostRideIntegrationTest {
     }
 
     @Test
+    @DisplayName("IT post() when the key header is sent twice should book under the first and claim nothing else")
+    void post_whenKeyHeaderIsSentTwice_shouldBookUnderFirstAndClaimNothingElse() {
+        // given
+        String first = UUID.randomUUID().toString();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set(HttpHeaders.AUTHORIZATION, RIDER);
+        headers.add("Idempotency-Key", first);
+        headers.add("Idempotency-Key", UUID.randomUUID().toString());
+
+        // when
+        ResponseEntity<String> response = rest.postForEntity(
+                "/api/v1/rides",
+                new HttpEntity<>(BODY, headers),
+                String.class
+        );
+
+        // then
+        assertThat(response.getStatusCode()).as(response.getBody()).isEqualTo(HttpStatus.CREATED);
+        assertThat(jdbc.sql("SELECT idempotency_key::text FROM rides").query(String.class).single()).isEqualTo(first);
+        assertThat(jdbc.sql("SELECT idempotency_key::text FROM idempotent_operations").query(String.class).list())
+                .containsExactly(first);
+    }
+
+    @Test
     @DisplayName("IT post() when the body fails validation should answer 400 and leave the key free")
     void post_whenBodyFailsValidation_shouldAnswerBadRequestAndLeaveKeyFree() {
         // given
