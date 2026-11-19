@@ -5,6 +5,9 @@ spring:
     url: ${RIDE_DB_URL:jdbc:postgresql://localhost:5432/rides}
     username: ${RIDE_DB_USERNAME:rides}
     password: ${RIDE_DB_PASSWORD:rides}
+    hikari:
+      # milliseconds; counted twice into the longest booking, which has to stay inside its idempotency lock
+      connection-timeout: 5000
   flyway:
     locations: classpath:db/migration
 

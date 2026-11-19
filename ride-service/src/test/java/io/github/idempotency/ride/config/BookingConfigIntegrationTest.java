@@ -1,6 +1,8 @@
 package io.github.idempotency.ride.config;
 
+import io.github.idempotency.ride.booking.ChargeLockVerifier;
 import io.github.idempotency.ride.booking.FareProperties;
+import io.github.idempotency.ride.stripe.StripeConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -13,7 +15,8 @@ class BookingConfigIntegrationTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(ValidationAutoConfiguration.class))
-            .withUserConfiguration(BookingConfig.class);
+            .withUserConfiguration(StripeConfig.class, BookingConfig.class)
+            .withPropertyValues("stripe.api-key=sk_test_123", "spring.datasource.hikari.connection-timeout=5000");
 
     @Test
     @DisplayName("IT context when no fare is set should charge 20 dollars per ride")
@@ -50,6 +53,25 @@ class BookingConfigIntegrationTest {
             // then
             assertThat(context).hasFailed();
             assertThat(context.getStartupFailure()).rootCause().hasMessageContaining("currency");
+        });
+    }
+
+    @Test
+    @DisplayName("IT context when the connection wait would let a booking outlast its lock should fail to start")
+    void context_whenConnectionWaitWouldLetBookingOutlastLock_shouldFailToStart() {
+        runner.withPropertyValues("spring.datasource.hikari.connection-timeout=30000").run(context -> {
+            // then
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure()).hasMessageContaining("idempotency lock");
+        });
+    }
+
+    @Test
+    @DisplayName("IT context when the timeouts fit inside the lock should start with the verifier")
+    void context_whenTimeoutsFitInsideLock_shouldStartWithVerifier() {
+        runner.withPropertyValues("spring.datasource.hikari.connection-timeout=5000").run(context -> {
+            // then
+            assertThat(context).hasSingleBean(ChargeLockVerifier.class);
         });
     }
 }

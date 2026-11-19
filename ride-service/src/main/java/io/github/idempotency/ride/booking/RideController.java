@@ -30,15 +30,15 @@ public class RideController {
 
     /**
      * Books and charges a ride once per Idempotency-Key. The charge cannot be rolled back, so the booking runs
-     * outside the idempotency transaction, under a lock held longer than the slowest charge the Stripe client allows
-     * (two network retries over the connect and read timeouts). A declined card and a charge Stripe failed for good
+     * outside the idempotency transaction, under a {@link ChargeLock} held longer than the slowest booking the
+     * configuration allows. A declined card and a charge Stripe failed for good
      * are kept on the record and answered to every repeat; any other failure releases the key for a retry.
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Idempotent(
             processorType = ProcessorTypeToggle.EXTERNAL_NON_BLOCKING,
-            lockTtl = 2,
+            lockTtl = ChargeLock.MINUTES,
             timeUnit = TimeUnit.MINUTES,
             recordFor = {PaymentDeclinedException.class, PaymentFailedException.class}
     )

@@ -73,4 +73,14 @@ class StripeConfigIntegrationTest {
             assertThat(context.getStartupFailure()).rootCause().hasMessageContaining("maxNetworkRetries");
         });
     }
+
+    @Test
+    @DisplayName("IT context when a timeout is zero should fail to start, since the SDK reads zero as no timeout")
+    void context_whenTimeoutIsZero_shouldFailToStart() {
+        runner.withPropertyValues("stripe.api-key=sk_test_123", "stripe.read-timeout=0s").run(context -> {
+            // then
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure()).rootCause().hasMessageContaining("readTimeout");
+        });
+    }
 }
