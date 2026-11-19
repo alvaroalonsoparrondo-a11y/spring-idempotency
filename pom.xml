@@ -21,6 +21,7 @@
     <modules>
         <module>rides-contract</module>
         <module>ride-service</module>
+        <module>ride-service-e2e-tests</module>
     </modules>
 
     <licenses>
@@ -102,6 +103,11 @@
             <dependency>
                 <groupId>io.github.idempotency</groupId>
                 <artifactId>rides-contract</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.idempotency</groupId>
+                <artifactId>ride-service</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
