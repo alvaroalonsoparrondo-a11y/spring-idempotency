@@ -68,15 +68,18 @@ public class RideRepository {
     }
 
     /**
-     * Records the charge on a ride that has none yet.
+     * Records the charge on a ride. Recording the same charge again changes nothing and answers the ride as it is:
+     * two runs of one booking - the second taking over after the first one's lock expired - get the same charge from
+     * Stripe, and whichever records it second must not fail.
      *
-     * @return the charged ride
-     * @throws IllegalStateException when the ride does not exist or is already charged
+     * @return the charged ride, with the time its charge was first recorded
+     * @throws IllegalStateException when the ride does not exist or carries another charge
      */
     Ride markCharged(long rideId, String stripeChargeId, Instant chargedAt) {
         return jdbc.sql("""
-                        UPDATE rides SET stripe_charge_id = :chargeId, charged_at = :chargedAt
-                        WHERE id = :id AND stripe_charge_id IS NULL
+                        UPDATE rides
+                        SET stripe_charge_id = :chargeId, charged_at = COALESCE(charged_at, :chargedAt)
+                        WHERE id = :id AND (stripe_charge_id IS NULL OR stripe_charge_id = :chargeId)
                         RETURNING
                         """ + COLUMNS)
                 .param("chargeId", stripeChargeId)
@@ -84,7 +87,9 @@ public class RideRepository {
                 .param("id", rideId)
                 .query(ROW_MAPPER)
                 .optional()
-                .orElseThrow(() -> new IllegalStateException("Ride %d is missing or already charged".formatted(rideId)));
+                .orElseThrow(() -> new IllegalStateException(
+                        "Ride %d is missing or carries another charge".formatted(rideId)
+                ));
     }
 
     private static Instant toInstant(Timestamp timestamp) {

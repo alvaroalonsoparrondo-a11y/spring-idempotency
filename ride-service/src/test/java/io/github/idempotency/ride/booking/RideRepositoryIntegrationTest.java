@@ -131,8 +131,23 @@ class RideRepositoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("IT markCharged() when the ride is already charged should throw and keep the first charge")
-    void markCharged_whenRideIsAlreadyCharged_shouldThrowAndKeepFirstCharge() {
+    @DisplayName("IT markCharged() when the same charge is recorded again should answer the ride as first charged")
+    void markCharged_whenSameChargeIsRecordedAgain_shouldAnswerRideAsFirstCharged() {
+        // given
+        Ride stored = tested.insertIfAbsent(newRide(KEY)).orElseThrow();
+        Ride first = tested.markCharged(stored.id(), "ch_123", CHARGED_AT);
+
+        // when
+        Ride again = tested.markCharged(stored.id(), "ch_123", CHARGED_AT.plusSeconds(90));
+
+        // then
+        assertThat(again).isEqualTo(first);
+        assertThat(again.chargedAt()).isEqualTo(CHARGED_AT);
+    }
+
+    @Test
+    @DisplayName("IT markCharged() when the ride carries another charge should throw and keep the first charge")
+    void markCharged_whenRideCarriesAnotherCharge_shouldThrowAndKeepFirstCharge() {
         // given
         Ride stored = tested.insertIfAbsent(newRide(KEY)).orElseThrow();
         tested.markCharged(stored.id(), "ch_first", CHARGED_AT);
@@ -140,7 +155,7 @@ class RideRepositoryIntegrationTest {
         // when / then
         assertThatThrownBy(() -> tested.markCharged(stored.id(), "ch_second", CHARGED_AT))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Ride %d is missing or already charged".formatted(stored.id()));
+                .hasMessage("Ride %d is missing or carries another charge".formatted(stored.id()));
         Map<String, Object> row = jdbc.sql("SELECT stripe_charge_id FROM rides").query().singleRow();
         assertThat(row).containsEntry("stripe_charge_id", "ch_first");
     }
