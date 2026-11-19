@@ -18,6 +18,10 @@
     <description>Spring Boot idempotency with the Idempotency-Key header: rides charged once through Stripe, however often the client retries</description>
     <url>https://github.com/dmitriy-iliyov/spring-idempotency</url>
 
+    <modules>
+        <module>rides-contract</module>
+    </modules>
+
     <licenses>
         <license>
             <name>Apache License, Version 2.0</name>
@@ -93,6 +97,11 @@
                 <groupId>io.github.dmitriy-iliyov</groupId>
                 <artifactId>oncebox-metrics</artifactId>
                 <version>${oncebox.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.idempotency</groupId>
+                <artifactId>rides-contract</artifactId>
+                <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.stripe</groupId>
