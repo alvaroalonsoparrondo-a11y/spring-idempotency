@@ -52,6 +52,6 @@ public abstract class EndToEndTest {
     }
 
     protected RidesClient client() {
-        return new RidesClient("http://localhost:%d".formatted(port));
+        return new RidesClient(port);
     }
 }
