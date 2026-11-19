@@ -26,7 +26,7 @@ class WebConfigUnitTest {
         );
 
         // then
-        assertThat(tested.getUrlPatterns()).containsExactly("/rides", "/rides/*");
+        assertThat(tested.getUrlPatterns()).containsExactly("/api/v1/rides", "/api/v1/rides/*");
         assertThat(tested.getOrder()).isLessThan(Ordered.LOWEST_PRECEDENCE);
     }
 }

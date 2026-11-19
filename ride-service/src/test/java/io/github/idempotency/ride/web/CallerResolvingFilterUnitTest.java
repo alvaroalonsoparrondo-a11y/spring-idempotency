@@ -54,7 +54,7 @@ class CallerResolvingFilterUnitTest {
     @BeforeEach
     void setUp() {
         tested = new CallerResolvingFilter(userRepository, objectMapper, clock);
-        request = new MockHttpServletRequest("POST", "/rides");
+        request = new MockHttpServletRequest("POST", "/api/v1/rides");
         request.setRemoteAddr("203.0.113.7");
         response = new MockHttpServletResponse();
         chain = new MockFilterChain();
@@ -159,8 +159,8 @@ class CallerResolvingFilterUnitTest {
         assertThat(body.get("title").asText()).isEqualTo("Unauthorized");
         assertThat(body.get("status").asInt()).isEqualTo(401);
         assertThat(body.get("detail").asText()).isEqualTo("The Authorization header does not name a known user.");
-        assertThat(body.get("instance").asText()).isEqualTo("/rides");
-        assertThat(body.get("path").asText()).isEqualTo("/rides");
+        assertThat(body.get("instance").asText()).isEqualTo("/api/v1/rides");
+        assertThat(body.get("path").asText()).isEqualTo("/api/v1/rides");
         assertThat(body.get("timestamp").asText()).isEqualTo(NOW.toString());
     }
 }

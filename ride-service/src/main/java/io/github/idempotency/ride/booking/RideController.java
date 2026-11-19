@@ -1,0 +1,52 @@
+package io.github.idempotency.ride.booking;
+
+import io.github.dmitriyiliyov.idempify.core.Idempotent;
+import io.github.dmitriyiliyov.idempify.core.ProcessorTypeToggle;
+import io.github.idempotency.ride.stripe.PaymentDeclinedException;
+import io.github.idempotency.ride.web.Caller;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+@RestController
+@RequestMapping("/api/v1/rides")
+public class RideController {
+
+    private final RideService rideService;
+
+    public RideController(RideService rideService) {
+        this.rideService = rideService;
+    }
+
+    /**
+     * Books and charges a ride once per Idempotency-Key. The charge cannot be rolled back, so the booking runs
+     * outside the idempotency transaction, under a lock held longer than the slowest charge the Stripe client allows
+     * (two network retries over the connect and read timeouts). A declined card is kept on the record and answered
+     * to every repeat; any other failure releases the key for a retry.
+     * <p>
+     * The header is bound as an optional string so that idempify, not the binder, validates it and answers a
+     * missing or malformed key with its own problem; by the time the body runs it is a canonical UUID.
+     */
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @Idempotent(
+            processorType = ProcessorTypeToggle.EXTERNAL_NON_BLOCKING,
+            lockTtl = 2,
+            timeUnit = TimeUnit.MINUTES,
+            recordFor = PaymentDeclinedException.class
+    )
+    public RideResponse create(@RequestAttribute(Caller.ATTRIBUTE) Caller caller,
+                               @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+                               @Valid @RequestBody CreateRideRequest request) {
+        return rideService.create(caller.user(), caller.originIp(), UUID.fromString(idempotencyKey), request);
+    }
+}

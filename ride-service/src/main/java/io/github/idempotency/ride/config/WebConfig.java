@@ -27,7 +27,7 @@ public class WebConfig {
                 new CallerResolvingFilter(userRepository, objectMapper, clock)
         );
         registration.setOrder(CALLER_FILTER_ORDER);
-        registration.addUrlPatterns("/rides", "/rides/*");
+        registration.addUrlPatterns("/api/v1/rides", "/api/v1/rides/*");
         return registration;
     }
 }
