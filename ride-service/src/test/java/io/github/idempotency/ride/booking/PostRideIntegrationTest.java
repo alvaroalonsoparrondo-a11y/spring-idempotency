@@ -8,6 +8,8 @@ import io.github.idempotency.ride.web.ProblemTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
@@ -209,6 +211,20 @@ class PostRideIntegrationTest {
         assertThat(jdbc.sql("SELECT idempotency_key::text FROM rides").query(String.class).single()).isEqualTo(first);
         assertThat(jdbc.sql("SELECT idempotency_key::text FROM idempotent_operations").query(String.class).list())
                 .containsExactly(first);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{not json", ""})
+    @DisplayName("IT post() when the body is not JSON should answer 400 and claim no operation")
+    void post_whenBodyIsNotJson_shouldAnswerBadRequestAndClaimNoOperation(String body) throws Exception {
+        // when
+        ResponseEntity<String> response = post(UUID.randomUUID().toString(), RIDER, body);
+
+        // then
+        assertThat(response.getStatusCode()).as(response.getBody()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(objectMapper.readTree(response.getBody()).get("detail").asText())
+                .isEqualTo("Failed to read request");
+        assertThat(count("idempotent_operations")).isZero();
     }
 
     @Test

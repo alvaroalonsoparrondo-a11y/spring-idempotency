@@ -31,6 +31,15 @@ final class Problems {
         );
     }
 
+    /**
+     * The answer Spring MVC gives a body it cannot read, for the filter that has to give it before MVC runs.
+     */
+    static ProblemDetail unreadableBody(String instance, Instant timestamp) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Failed to read request");
+        stamp(problem, instance, timestamp);
+        return problem;
+    }
+
     static ProblemDetail validationFailed(List<FieldError> fieldErrors, String instance, Instant timestamp) {
         ProblemDetail problem = problem(
                 HttpStatus.BAD_REQUEST,
