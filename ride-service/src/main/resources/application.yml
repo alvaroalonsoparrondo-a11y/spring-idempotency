@@ -11,3 +11,7 @@ spring:
 idempify:
   schema:
     mode: FLYWAY
+
+server:
+  # the origin ip of a request is the client's, as reported by the proxies Tomcat trusts
+  forward-headers-strategy: native
