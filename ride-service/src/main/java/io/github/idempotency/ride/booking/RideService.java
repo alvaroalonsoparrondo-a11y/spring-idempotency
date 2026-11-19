@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -29,6 +30,12 @@ import java.util.UUID;
 public class RideService {
 
     private static final Logger log = LoggerFactory.getLogger(RideService.class);
+
+    /**
+     * How long after booking an uncharged ride may still be charged. Stripe keeps an idempotency key for at least 24
+     * hours; past that, a charge under the same key could be a second one, so the hour of margin stays on this side.
+     */
+    static final Duration CHARGE_WINDOW = Duration.ofHours(23);
 
     private final RideRepository rideRepository;
     private final AuditRepository auditRepository;
@@ -61,6 +68,7 @@ public class RideService {
      * @param request        the ride to book
      * @return the booked and charged ride
      * @throws IdempotencyKeyReusedException when the key already booked a different ride
+     * @throws BookingExpiredException when the key booked this ride but it stayed uncharged past the charge window
      * @throws io.github.idempotency.ride.stripe.PaymentDeclinedException when Stripe declined the card
      * @throws io.github.idempotency.ride.stripe.PaymentFailedException when Stripe failed the charge for good
      * @throws io.github.idempotency.ride.stripe.PaymentProviderException when Stripe could not complete the charge
@@ -69,6 +77,9 @@ public class RideService {
         Ride ride = transaction.execute(status -> findOrBook(user, originIp, idempotencyKey, request));
         if (ride.isCharged()) {
             return RideResponse.from(ride);
+        }
+        if (ride.createdAt().plus(CHARGE_WINDOW).isBefore(clock.instant())) {
+            throw new BookingExpiredException(ride.id());
         }
         String chargeId = stripe.charge(
                 user.stripeCustomerId(),

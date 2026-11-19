@@ -90,6 +90,17 @@ final class Problems {
         );
     }
 
+    static ProblemDetail bookingExpired(String detail, String instance, Instant timestamp) {
+        return problem(
+                HttpStatus.CONFLICT,
+                ProblemTypes.BOOKING_EXPIRED,
+                "Booking expired",
+                detail + ". Book the ride again under a new Idempotency-Key.",
+                instance,
+                timestamp
+        );
+    }
+
     static ProblemDetail internalError(String instance, Instant timestamp) {
         return problem(
                 HttpStatus.INTERNAL_SERVER_ERROR,

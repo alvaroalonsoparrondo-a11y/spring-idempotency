@@ -1,5 +1,6 @@
 package io.github.idempotency.ride.web;
 
+import io.github.idempotency.ride.booking.BookingExpiredException;
 import io.github.idempotency.ride.booking.IdempotencyKeyReusedException;
 import io.github.idempotency.ride.booking.RideController;
 import io.github.idempotency.ride.stripe.PaymentDeclinedException;
@@ -67,6 +68,12 @@ public class RideControllerAdvice extends ResponseEntityExceptionHandler {
                                                              HttpServletRequest request) {
         log.debug("Idempotency-Key reused for {}", request.getRequestURI());
         return Problems.idempotencyKeyReused(exception.getMessage(), request.getRequestURI(), clock.instant());
+    }
+
+    @ExceptionHandler(BookingExpiredException.class)
+    public ProblemDetail handleBookingExpiredException(BookingExpiredException exception, HttpServletRequest request) {
+        log.debug("Booking expired for {}", request.getRequestURI());
+        return Problems.bookingExpired(exception.getMessage(), request.getRequestURI(), clock.instant());
     }
 
     @ExceptionHandler(Exception.class)

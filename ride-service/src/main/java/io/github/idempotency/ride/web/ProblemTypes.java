@@ -23,6 +23,8 @@ public final class ProblemTypes {
 
     public static final URI PAYMENT_PROVIDER_UNAVAILABLE = URI.create(BASE + "payment-provider-unavailable");
 
+    public static final URI BOOKING_EXPIRED = URI.create(BASE + "booking-expired");
+
     public static final URI INTERNAL_ERROR = URI.create(BASE + "internal-error");
 
     private ProblemTypes() {}

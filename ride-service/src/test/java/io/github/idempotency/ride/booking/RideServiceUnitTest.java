@@ -127,6 +127,40 @@ class RideServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UT create() when the uncharged ride is older than the charge window should refuse to charge it")
+    void create_whenUnchargedRideIsOlderThanChargeWindow_shouldRefuseToChargeIt() {
+        // given
+        Ride old = new Ride(7L, USER.id(), KEY, ORIGIN, TARGET, 2000L, "usd", null, null,
+                CHARGED_AT.minus(RideService.CHARGE_WINDOW).minusSeconds(1));
+        when(rideRepository.insertIfAbsent(any(NewRide.class))).thenReturn(Optional.empty());
+        when(rideRepository.findByIdempotencyKey(KEY)).thenReturn(Optional.of(old));
+
+        // when / then
+        assertThatThrownBy(() -> tested.create(USER, ORIGIN_IP, KEY, request()))
+                .isInstanceOf(BookingExpiredException.class)
+                .hasMessage("Ride 7 was booked too long ago to be charged under the same Idempotency-Key");
+        verifyNoInteractions(stripe);
+    }
+
+    @Test
+    @DisplayName("UT create() when the uncharged ride is exactly at the end of the charge window should still charge it")
+    void create_whenUnchargedRideIsAtEndOfChargeWindow_shouldStillChargeIt() {
+        // given
+        Ride atEdge = new Ride(7L, USER.id(), KEY, ORIGIN, TARGET, 2000L, "usd", null, null,
+                CHARGED_AT.minus(RideService.CHARGE_WINDOW));
+        when(rideRepository.insertIfAbsent(any(NewRide.class))).thenReturn(Optional.empty());
+        when(rideRepository.findByIdempotencyKey(KEY)).thenReturn(Optional.of(atEdge));
+        when(stripe.charge("cus_rider", 2000L, "usd", "Ride 7", KEY)).thenReturn("ch_123");
+        when(rideRepository.markCharged(7L, "ch_123", CHARGED_AT)).thenReturn(charged(7L, "ch_123"));
+
+        // when
+        RideResponse response = tested.create(USER, ORIGIN_IP, KEY, request());
+
+        // then
+        assertThat(response.stripeChargeId()).isEqualTo("ch_123");
+    }
+
+    @Test
     @DisplayName("UT create() when the same route is written with another scale should count as the same ride")
     void create_whenSameRouteIsWrittenWithAnotherScale_shouldCountAsSameRide() {
         // given

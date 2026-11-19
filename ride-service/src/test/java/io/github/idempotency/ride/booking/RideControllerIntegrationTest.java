@@ -185,6 +185,20 @@ class RideControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("IT create() when the booking is too old to be charged should answer 409 asking for a new key")
+    void create_whenBookingIsTooOldToBeCharged_shouldAnswerConflictAskingForNewKey() throws Exception {
+        // given
+        when(rideService.create(eq(USER), eq("203.0.113.7"), eq(KEY), any()))
+                .thenThrow(new BookingExpiredException(7L));
+
+        // when / then
+        post(BODY).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value(ProblemTypes.BOOKING_EXPIRED.toString()))
+                .andExpect(jsonPath("$.detail").value("Ride 7 was booked too long ago to be charged under the same "
+                        + "Idempotency-Key. Book the ride again under a new Idempotency-Key."));
+    }
+
+    @Test
     @DisplayName("IT create() when idempify refuses the call should keep idempify's answer, not the catch-all")
     void create_whenIdempifyRefusesCall_shouldKeepIdempifyAnswerNotCatchAll() throws Exception {
         // given
