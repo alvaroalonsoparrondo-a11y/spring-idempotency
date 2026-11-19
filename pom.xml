@@ -20,6 +20,7 @@
 
     <modules>
         <module>rides-contract</module>
+        <module>ride-service</module>
     </modules>
 
     <licenses>

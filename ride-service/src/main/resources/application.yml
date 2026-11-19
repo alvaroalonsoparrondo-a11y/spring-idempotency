@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: ride-service
+  datasource:
+    url: ${RIDE_DB_URL:jdbc:postgresql://localhost:5432/rides}
+    username: ${RIDE_DB_USERNAME:rides}
+    password: ${RIDE_DB_PASSWORD:rides}
+  flyway:
+    locations: classpath:db/migration
+
+idempify:
+  schema:
+    mode: FLYWAY
