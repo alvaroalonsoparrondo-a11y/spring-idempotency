@@ -1,0 +1,64 @@
+# Requests against a local ride-service (the local profile with the compose stack).
+# Runs in the IntelliJ HTTP client and in the VS Code REST Client.
+
+@host = http://localhost:8080
+@rider = local.user@example.com
+# one booking: send the request below twice with this key and the second answer is the first one replayed
+@key = 6f1c9f0a-2b3e-4a4b-9f0a-1234567890ab
+
+### Book a ride
+POST {{host}}/api/v1/rides
+Content-Type: application/json
+Authorization: {{rider}}
+Idempotency-Key: {{key}}
+
+{
+  "origin": {"lat": 52.5200066, "lon": 13.4049540},
+  "target": {"lat": 52.3675734, "lon": 4.9041389},
+  "client": {"appVersion": "4.2.0", "platform": "android"}
+}
+
+### Same key, another route: refused with 422
+POST {{host}}/api/v1/rides
+Content-Type: application/json
+Authorization: {{rider}}
+Idempotency-Key: {{key}}
+
+{
+  "origin": {"lat": 52.5200066, "lon": 13.4049540},
+  "target": {"lat": 48.8566140, "lon": 2.3522219}
+}
+
+### Missing Idempotency-Key: refused with 400
+POST {{host}}/api/v1/rides
+Content-Type: application/json
+Authorization: {{rider}}
+
+{
+  "origin": {"lat": 52.5200066, "lon": 13.4049540},
+  "target": {"lat": 52.3675734, "lon": 4.9041389}
+}
+
+### Unknown user: refused with 401
+POST {{host}}/api/v1/rides
+Content-Type: application/json
+Authorization: nobody@example.com
+Idempotency-Key: 0b6a5c7e-3f1d-4c2b-9a8e-2d4f6b8c0e1a
+
+{
+  "origin": {"lat": 52.5200066, "lon": 13.4049540},
+  "target": {"lat": 52.3675734, "lon": 4.9041389}
+}
+
+### Invalid coordinates: refused with 400 naming every field
+POST {{host}}/api/v1/rides
+Content-Type: application/json
+Authorization: {{rider}}
+Idempotency-Key: 9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a
+
+{
+  "origin": {"lat": 91, "lon": -181}
+}
+
+### The API document
+GET {{host}}/v3/api-docs
