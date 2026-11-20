@@ -27,6 +27,15 @@ jobs:
       - name: Build and test
         run: ./mvnw -B verify
 
+      # the JaCoCo report of every module; sent for a failed run too, and an outage of Codecov fails nothing
+      - name: Upload coverage
+        if: always()
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: dmitriy-iliyov/spring-idempotency
+          fail_ci_if_error: false
+
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v7
