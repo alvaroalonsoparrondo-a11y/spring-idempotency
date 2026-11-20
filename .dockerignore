@@ -1,13 +1,8 @@
-# Only what the service images are built from
+# Only what the service images are built from: the wrapper, the build files and the main sources of every module
 **
 !pom.xml
 !mvnw
 !.mvn/wrapper/maven-wrapper.properties
-!rides-contract/pom.xml
-!rides-contract/src/main/**
-!ride-service/pom.xml
-!ride-service/src/main/**
-!receipt-service/pom.xml
-!receipt-service/src/main/**
-!tests/ride-service-e2e-tests/pom.xml
-!tests/receipt-service-e2e-tests/pom.xml
+!*/pom.xml
+!tests/*/pom.xml
+!*/src/main/**

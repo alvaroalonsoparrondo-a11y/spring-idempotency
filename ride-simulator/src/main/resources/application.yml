@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: ride-simulator
+  main:
+    web-application-type: none
+
+simulator:
+  base-url: ${SIMULATOR_BASE_URL:http://localhost:8080}

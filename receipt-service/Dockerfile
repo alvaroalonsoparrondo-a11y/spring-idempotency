@@ -2,16 +2,8 @@
 # docker build -f receipt-service/Dockerfile .
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /build
-COPY mvnw pom.xml ./
-COPY .mvn/wrapper/maven-wrapper.properties .mvn/wrapper/
-COPY rides-contract/pom.xml rides-contract/
-COPY ride-service/pom.xml ride-service/
-COPY receipt-service/pom.xml receipt-service/
-# every module the parent lists has to be there for the reactor, even the ones not built here
-COPY tests/ride-service-e2e-tests/pom.xml tests/ride-service-e2e-tests/
-COPY tests/receipt-service-e2e-tests/pom.xml tests/receipt-service-e2e-tests/
-COPY rides-contract/src rides-contract/src
-COPY receipt-service/src receipt-service/src
+# the build files of every module, since the reactor needs them all, and the main sources (see .dockerignore)
+COPY . .
 # the local repository survives between builds in a cache mount, so dependencies download once
 RUN --mount=type=cache,target=/root/.m2 \
     ./mvnw -B -q -pl receipt-service -am package -DskipTests -Djacoco.skip=true \
