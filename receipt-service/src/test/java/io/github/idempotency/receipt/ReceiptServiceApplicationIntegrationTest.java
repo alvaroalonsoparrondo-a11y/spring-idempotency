@@ -9,6 +9,9 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.util.List;
 import java.util.Map;
@@ -20,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+@ExtendWith(OutputCaptureExtension.class)
 class ReceiptServiceApplicationIntegrationTest extends ReceiptServiceIntegrationTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
@@ -45,6 +49,19 @@ class ReceiptServiceApplicationIntegrationTest extends ReceiptServiceIntegration
         verify(receiptSender, times(1)).send(ReceiptJobs.job(7L));
         verify(receiptSender, times(2)).send(any());
         assertThat(jdbc.sql("SELECT ride_id FROM receipts").query(Long.class).list()).containsExactlyInAnyOrder(7L, 8L);
+    }
+
+    @Test
+    @DisplayName("IT listen() should log the sent receipt as JSON with the ride and the charge as fields")
+    void listen_whenReceiptIsSent_shouldLogItAsJsonWithRideAndChargeAsFields(CapturedOutput output) throws Exception {
+        // when
+        ReceiptJobs.publish(UUID.randomUUID(), objectMapper.writeValueAsString(ReceiptJobs.job(11L)));
+
+        // then
+        awaitAtMost().untilAsserted(() -> assertThat(output.getOut())
+                .containsPattern("\\{\"@timestamp\":[^\\n]*\"message\":\"Receipt sent for ride 11: 2000 usd\"")
+                .contains("\"rideId\":11")
+                .contains("\"stripeChargeId\":\"ch_11\""));
     }
 
     @Test

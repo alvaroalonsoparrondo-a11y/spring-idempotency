@@ -19,6 +19,12 @@ spring:
       properties:
         enable.idempotence: true
 
+logging:
+  structured:
+    # one JSON object per line in Elastic Common Schema, the receipt's ride, rider and charge as fields of their own
+    format:
+      console: ecs
+
 oncebox:
   # the inbox clean-up
   thread-pool-size: 1
