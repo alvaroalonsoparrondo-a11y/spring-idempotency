@@ -243,7 +243,7 @@ off, until the answer is definitive.
 
 ```bash
 ./mvnw -pl ride-simulator -am package -DskipTests
-java -jar ride-simulator/target/ride-simulator-0.1.0-SNAPSHOT.jar
+java -jar ride-simulator/target/ride-simulator-0.1.0.jar
 # Booking 7d2c... for second.user@example.com attempt 1 got no answer, retrying under the same key
 # Booking 7d2c... for second.user@example.com answered 201 after 2 attempt(s): {"id":12,...}
 ```

@@ -32,7 +32,7 @@ body:
       description: Minimal steps to reproduce the issue.
       placeholder: |
         1. docker compose up -d
-        2. java -jar ride-service/target/ride-service-0.1.0-SNAPSHOT-exec.jar --spring.profiles.active=local
+        2. java -jar ride-service/target/ride-service-0.1.0-exec.jar --spring.profiles.active=local
         3. POST /api/v1/rides with Idempotency-Key ... and body ...
     validations:
       required: true
