@@ -6,7 +6,6 @@ import io.github.idempotency.ride.stripe.PaymentDeclinedException;
 import io.github.idempotency.ride.stripe.PaymentFailedException;
 import io.github.idempotency.ride.web.Caller;
 import io.github.idempotency.ride.web.IdempotencyKey;
-import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -20,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/v1/rides")
-public class RideController {
+public class RideController implements RideApi {
 
     private final RideService rideService;
 
@@ -31,8 +30,8 @@ public class RideController {
     /**
      * Books and charges a ride once per Idempotency-Key. The charge cannot be rolled back, so the booking runs
      * outside the idempotency transaction, under a {@link ChargeLock} held longer than the slowest booking the
-     * configuration allows. A declined card and a charge Stripe failed for good
-     * are kept on the record and answered to every repeat; any other failure releases the key for a retry.
+     * configuration allows. A declined card and a charge Stripe failed for good are kept on the record and answered
+     * to every repeat; any other failure releases the key for a retry.
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -42,9 +41,10 @@ public class RideController {
             timeUnit = TimeUnit.MINUTES,
             recordFor = {PaymentDeclinedException.class, PaymentFailedException.class}
     )
+    @Override
     public RideResponse create(@RequestAttribute(Caller.ATTRIBUTE) Caller caller,
                                @IdempotencyKey UUID idempotencyKey,
-                               @Valid @RequestBody CreateRideRequest request) {
+                               @RequestBody CreateRideRequest request) {
         return rideService.create(caller.user(), caller.originIp(), idempotencyKey, request);
     }
 }
