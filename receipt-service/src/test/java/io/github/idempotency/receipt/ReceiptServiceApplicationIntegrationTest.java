@@ -48,7 +48,7 @@ class ReceiptServiceApplicationIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        jdbc.sql("TRUNCATE inbox_events").update();
+        jdbc.sql("TRUNCATE inbox_events, receipts RESTART IDENTITY").update();
         clearInvocations(receiptSender);
     }
 
@@ -73,5 +73,6 @@ class ReceiptServiceApplicationIntegrationTest {
         ).containsExactlyInAnyOrder(eventId, marker));
         verify(receiptSender, times(1)).send(ReceiptJobs.job(7L));
         verify(receiptSender, times(2)).send(any());
+        assertThat(jdbc.sql("SELECT ride_id FROM receipts").query(Long.class).list()).containsExactlyInAnyOrder(7L, 8L);
     }
 }

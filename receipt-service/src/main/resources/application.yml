@@ -5,6 +5,8 @@ spring:
     url: ${RECEIPT_DB_URL:jdbc:postgresql://localhost:5432/receipts}
     username: ${RECEIPT_DB_USERNAME:receipts}
     password: ${RECEIPT_DB_PASSWORD:receipts}
+  flyway:
+    locations: classpath:db/migration
   kafka:
     bootstrap-servers: ${RECEIPT_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
