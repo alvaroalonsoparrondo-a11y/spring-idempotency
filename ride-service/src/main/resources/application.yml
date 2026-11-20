@@ -18,6 +18,12 @@ spring:
       timeout: 2s
   kafka:
     bootstrap-servers: ${RIDE_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      # the outbox marks a job sent only once every in-sync replica has it
+      acks: all
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 30000
 
 idempify:
   schema:
@@ -29,11 +35,13 @@ idempify:
     name: ride-service
 
 oncebox:
-  # stuck-event recovery, clean-up and one poller for the receipt jobs
-  thread-pool-size: 3
+  # stuck-event recovery, clean-up, three dead letter jobs and one poller for the receipt jobs
+  thread-pool-size: 6
   outbox:
     sender:
       type: kafka
+    dlq:
+      enabled: true
     events:
       ride-receipt:
         topic: ride-receipts
@@ -43,6 +51,12 @@ oncebox:
           min-fixed-delay: 250ms
           max-fixed-delay: 10s
           multiplier: 1.5
+
+rides:
+  receipts:
+    topic:
+      partitions: ${RIDE_RECEIPTS_TOPIC_PARTITIONS:3}
+      replicas: ${RIDE_RECEIPTS_TOPIC_REPLICAS:1}
 
 stripe:
   api-key: ${STRIPE_API_KEY}
