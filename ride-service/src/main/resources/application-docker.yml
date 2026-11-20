@@ -6,7 +6,7 @@ spring:
     redis:
       host: ${RIDE_REDIS_HOST:redis}
   kafka:
-    bootstrap-servers: ${RIDE_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    bootstrap-servers: ${RIDE_KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
   flyway:
     locations: classpath:db/migration,classpath:db/seed
 

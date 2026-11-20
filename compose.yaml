@@ -1,4 +1,5 @@
-# The infrastructure of both services: docker compose up -d
+# The infrastructure of both services:      docker compose up -d
+# ... and both services on top of it:      docker compose --profile apps up -d --build
 name: spring-idempotency
 
 services:
@@ -53,6 +54,40 @@ services:
     ports:
       - "12111:12111"
       - "12112:12112"
+
+  ride-service:
+    profiles: [apps]
+    build:
+      context: .
+      dockerfile: ride-service/Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      stripe-mock:
+        condition: service_started
+
+  receipt-service:
+    profiles: [apps]
+    build:
+      context: .
+      dockerfile: receipt-service/Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
 
 volumes:
   postgres-data:

@@ -3,4 +3,4 @@ spring:
   datasource:
     url: ${RECEIPT_DB_URL:jdbc:postgresql://postgres:5432/receipts}
   kafka:
-    bootstrap-servers: ${RECEIPT_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    bootstrap-servers: ${RECEIPT_KAFKA_BOOTSTRAP_SERVERS:kafka:29092}

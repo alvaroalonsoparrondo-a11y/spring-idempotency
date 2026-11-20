@@ -1,0 +1,13 @@
+# Only what the service images are built from
+**
+!pom.xml
+!mvnw
+!.mvn/wrapper/maven-wrapper.properties
+!rides-contract/pom.xml
+!rides-contract/src/main/**
+!ride-service/pom.xml
+!ride-service/src/main/**
+!receipt-service/pom.xml
+!receipt-service/src/main/**
+!tests/ride-service-e2e-tests/pom.xml
+!tests/receipt-service-e2e-tests/pom.xml
