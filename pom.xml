@@ -25,6 +25,7 @@
         <module>receipt-service</module>
         <module>tests/receipt-service-e2e-tests</module>
         <module>ride-simulator</module>
+        <module>tests/load-tests</module>
     </modules>
 
     <licenses>
