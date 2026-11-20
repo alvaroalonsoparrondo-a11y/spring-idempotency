@@ -45,3 +45,36 @@ jobs:
             **/target/surefire-reports/
             tests/receipt-service-e2e-tests/target/apps/*.log
           retention-days: 7
+
+  load-smoke:
+    name: Load test smoke
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      # both services built from source on the compose infrastructure, started once the healthchecks pass
+      - name: Start the stack
+        run: docker compose --profile apps up -d --build --wait --wait-timeout 300
+
+      # the first seconds of a cold JVM are not what the latency assertion is about
+      - name: Warm up
+        run: ./mvnw -B -pl :load-tests gatling:test -DusersPerSecond=5 -DdurationSeconds=20 -Dgatling.failOnError=false
+
+      - name: Run the simulation
+        run: ./mvnw -B -pl :load-tests gatling:test -DusersPerSecond=10 -DdurationSeconds=60
+
+      - name: Service logs
+        if: failure()
+        run: docker compose --profile apps logs ride-service receipt-service
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose --profile apps down -v
