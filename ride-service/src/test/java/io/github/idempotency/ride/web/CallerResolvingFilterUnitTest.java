@@ -14,6 +14,7 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
@@ -24,6 +25,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -73,6 +76,22 @@ class CallerResolvingFilterUnitTest {
         // then
         assertThat(chain.getRequest()).isSameAs(request);
         assertThat(request.getAttribute(Caller.ATTRIBUTE)).isEqualTo(new Caller(USER, "203.0.113.7"));
+    }
+
+    @Test
+    @DisplayName("UT doFilter() when the user is known should log the request under their id and forget it after")
+    void doFilter_whenUserIsKnown_shouldLogRequestUnderTheirIdAndForgetItAfter() throws Exception {
+        // given
+        request.addHeader(HttpHeaders.AUTHORIZATION, "rider@example.com");
+        when(userRepository.findByEmail("rider@example.com")).thenReturn(Optional.of(USER));
+        Map<String, String> seenByChain = new HashMap<>();
+
+        // when
+        tested.doFilter(request, response, (req, res) -> seenByChain.putAll(MDC.getCopyOfContextMap()));
+
+        // then
+        assertThat(seenByChain).containsEntry("userId", "3");
+        assertThat(MDC.get("userId")).isNull();
     }
 
     @Test

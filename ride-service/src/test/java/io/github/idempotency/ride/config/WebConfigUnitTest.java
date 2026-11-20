@@ -3,6 +3,7 @@ package io.github.idempotency.ride.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.idempotency.ride.user.UserRepository;
 import io.github.idempotency.ride.web.CallerResolvingFilter;
+import io.github.idempotency.ride.web.CorrelationIdFilter;
 import io.github.idempotency.ride.web.JsonBodyGuardFilter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,5 +45,16 @@ class WebConfigUnitTest {
         assertThat(tested.getUrlPatterns()).containsExactly("/api/v1/rides", "/api/v1/rides/*");
         assertThat(tested.getOrder()).isGreaterThan(WebConfig.CALLER_FILTER_ORDER)
                 .isLessThan(Ordered.LOWEST_PRECEDENCE);
+    }
+
+    @Test
+    @DisplayName("UT correlationIdFilter() should run on every path ahead of the filters that log")
+    void correlationIdFilter_whenRegistered_shouldRunOnEveryPathAheadOfFiltersThatLog() {
+        // when
+        FilterRegistrationBean<CorrelationIdFilter> tested = new WebConfig().correlationIdFilter();
+
+        // then
+        assertThat(tested.getUrlPatterns()).containsExactly("/*");
+        assertThat(tested.getOrder()).isLessThan(WebConfig.CALLER_FILTER_ORDER);
     }
 }

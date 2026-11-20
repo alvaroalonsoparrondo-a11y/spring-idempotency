@@ -1,6 +1,7 @@
 package io.github.idempotency.ride.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.idempotency.contract.LogFields;
 import io.github.idempotency.ride.user.User;
 import io.github.idempotency.ride.user.UserRepository;
 import jakarta.servlet.FilterChain;
@@ -9,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -50,7 +52,12 @@ public class CallerResolvingFilter extends OncePerRequestFilter {
             return;
         }
         request.setAttribute(Caller.ATTRIBUTE, new Caller(user.get(), request.getRemoteAddr()));
-        chain.doFilter(request, response);
+        MDC.put(LogFields.USER_ID, String.valueOf(user.get().id()));
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            MDC.remove(LogFields.USER_ID);
+        }
     }
 
     private Optional<User> resolveUser(String authorization) {

@@ -79,6 +79,27 @@ class PostRideIntegrationTest {
     }
 
     @Test
+    @DisplayName("IT post() should answer under the caller's correlation id")
+    void post_whenCallerSendsCorrelationId_shouldAnswerUnderIt() {
+        // given
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set(HttpHeaders.AUTHORIZATION, RIDER);
+        headers.set("Idempotency-Key", UUID.randomUUID().toString());
+        headers.set("X-Correlation-Id", "it-correlation-1");
+
+        // when
+        ResponseEntity<String> response = rest.postForEntity(
+                "/api/v1/rides",
+                new HttpEntity<>(BODY, headers),
+                String.class
+        );
+
+        // then
+        assertThat(response.getHeaders().getFirst("X-Correlation-Id")).isEqualTo("it-correlation-1");
+    }
+
+    @Test
     @DisplayName("IT post() when a ride is charged should stage one receipt job for it, also when repeated")
     void post_whenRideIsCharged_shouldStageOneReceiptJobForItAlsoWhenRepeated() throws Exception {
         // given

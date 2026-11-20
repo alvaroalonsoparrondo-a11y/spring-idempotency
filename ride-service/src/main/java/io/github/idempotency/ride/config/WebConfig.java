@@ -3,6 +3,7 @@ package io.github.idempotency.ride.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.idempotency.ride.user.UserRepository;
 import io.github.idempotency.ride.web.CallerResolvingFilter;
+import io.github.idempotency.ride.web.CorrelationIdFilter;
 import io.github.idempotency.ride.web.JsonBodyGuardFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +20,11 @@ public class WebConfig {
      * responses before any handler runs.
      */
     static final int CALLER_FILTER_ORDER = Ordered.LOWEST_PRECEDENCE - 100;
+
+    /**
+     * Ahead of everything that logs, so every line of a request carries its correlation id.
+     */
+    static final int CORRELATION_FILTER_ORDER = Ordered.HIGHEST_PRECEDENCE + 10;
 
     /**
      * After the caller is known, still ahead of idempify's response filter.
@@ -44,6 +50,16 @@ public class WebConfig {
         );
         registration.setOrder(JSON_BODY_GUARD_ORDER);
         registration.addUrlPatterns("/api/v1/rides", "/api/v1/rides/*");
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<CorrelationIdFilter> correlationIdFilter() {
+        FilterRegistrationBean<CorrelationIdFilter> registration = new FilterRegistrationBean<>(
+                new CorrelationIdFilter()
+        );
+        registration.setOrder(CORRELATION_FILTER_ORDER);
+        registration.addUrlPatterns("/*");
         return registration;
     }
 }
