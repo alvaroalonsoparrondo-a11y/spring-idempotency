@@ -57,7 +57,7 @@ class PostRideIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        jdbc.sql("TRUNCATE idempotent_operations, audit_records, rides, users RESTART IDENTITY CASCADE").update();
+        jdbc.sql("TRUNCATE outbox_events, idempotent_operations, audit_records, rides, users RESTART IDENTITY CASCADE").update();
         jdbc.sql("INSERT INTO users (email, stripe_customer_id) VALUES (?, 'cus_rider')").param(RIDER).update();
     }
 
@@ -76,6 +76,27 @@ class PostRideIntegrationTest {
         assertThat(stored).containsEntry("id", ride.get("id").asLong())
                 .containsEntry("stripe_charge_id", ride.get("stripeChargeId").asText());
         assertThat(count("audit_records")).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("IT post() when a ride is charged should stage one receipt job for it, also when repeated")
+    void post_whenRideIsCharged_shouldStageOneReceiptJobForItAlsoWhenRepeated() throws Exception {
+        // given
+        String key = UUID.randomUUID().toString();
+
+        // when
+        ResponseEntity<String> response = post(key, RIDER, BODY);
+        post(key, RIDER, BODY);
+
+        // then
+        JsonNode ride = objectMapper.readTree(response.getBody());
+        Map<String, Object> event = jdbc.sql("SELECT event_type, payload FROM outbox_events").query().singleRow();
+        assertThat(event).containsEntry("event_type", "ride-receipt");
+        JsonNode job = objectMapper.readTree((String) event.get("payload"));
+        assertThat(job.get("rideId").asLong()).isEqualTo(ride.get("id").asLong());
+        assertThat(job.get("stripeChargeId").asText()).isEqualTo(ride.get("stripeChargeId").asText());
+        assertThat(job.get("amount").asLong()).isEqualTo(2000L);
+        assertThat(job.get("currency").asText()).isEqualTo("usd");
     }
 
     @Test

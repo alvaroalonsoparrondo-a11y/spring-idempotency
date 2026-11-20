@@ -1,6 +1,8 @@
 package io.github.idempotency.ride.booking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.dmitriyiliyov.oncebox.core.outbox.OutboxPublisher;
+import io.github.idempotency.contract.ReceiptJob;
 import io.github.idempotency.ride.audit.AuditAction;
 import io.github.idempotency.ride.audit.AuditRecord;
 import io.github.idempotency.ride.audit.AuditRepository;
@@ -61,11 +63,14 @@ class RideServiceUnitTest {
     @Mock
     private StripeChargeClient stripe;
 
+    @Mock
+    private OutboxPublisher outbox;
+
     private RideService tested;
 
     @BeforeEach
     void setUp() {
-        tested = new RideService(rideRepository, auditRepository, stripe, transaction, fare, objectMapper, clock);
+        tested = new RideService(rideRepository, auditRepository, stripe, outbox, transaction, fare, objectMapper, clock);
     }
 
     @Test
@@ -75,7 +80,8 @@ class RideServiceUnitTest {
         when(rideRepository.insertIfAbsent(new NewRide(USER.id(), KEY, ORIGIN, TARGET, 2000L, "usd")))
                 .thenReturn(Optional.of(uncharged(7L)));
         when(stripe.charge("cus_rider", 2000L, "usd", "Ride 7", KEY)).thenReturn("ch_123");
-        when(rideRepository.markCharged(7L, "ch_123", CHARGED_AT)).thenReturn(charged(7L, "ch_123"));
+        when(rideRepository.markCharged(7L, "ch_123", CHARGED_AT))
+                .thenReturn(new ChargeRecord(charged(7L, "ch_123"), true));
 
         // when
         RideResponse response = tested.create(USER, ORIGIN_IP, KEY, request());
@@ -91,6 +97,7 @@ class RideServiceUnitTest {
         assertThat(audit.getValue().originIp()).isEqualTo(ORIGIN_IP);
         assertThat(audit.getValue().data()).isEqualTo(objectMapper.valueToTree(request()));
         assertThat(transactionManager.commits()).isEqualTo(2);
+        verify(outbox).publish(ReceiptJob.EVENT_TYPE, new ReceiptJob(7L, USER.id(), "ch_123", 2000L, "usd", CHARGED_AT));
     }
 
     @Test
@@ -105,7 +112,7 @@ class RideServiceUnitTest {
 
         // then
         assertThat(response).isEqualTo(RideResponse.from(charged(7L, "ch_123")));
-        verifyNoInteractions(stripe, auditRepository);
+        verifyNoInteractions(stripe, auditRepository, outbox);
         verify(rideRepository, never()).markCharged(anyLong(), anyString(), any());
     }
 
@@ -116,7 +123,8 @@ class RideServiceUnitTest {
         when(rideRepository.insertIfAbsent(any(NewRide.class))).thenReturn(Optional.empty());
         when(rideRepository.findByIdempotencyKey(KEY)).thenReturn(Optional.of(uncharged(7L)));
         when(stripe.charge("cus_rider", 2000L, "usd", "Ride 7", KEY)).thenReturn("ch_123");
-        when(rideRepository.markCharged(7L, "ch_123", CHARGED_AT)).thenReturn(charged(7L, "ch_123"));
+        when(rideRepository.markCharged(7L, "ch_123", CHARGED_AT))
+                .thenReturn(new ChargeRecord(charged(7L, "ch_123"), true));
 
         // when
         RideResponse response = tested.create(USER, ORIGIN_IP, KEY, request());
@@ -151,13 +159,32 @@ class RideServiceUnitTest {
         when(rideRepository.insertIfAbsent(any(NewRide.class))).thenReturn(Optional.empty());
         when(rideRepository.findByIdempotencyKey(KEY)).thenReturn(Optional.of(atEdge));
         when(stripe.charge("cus_rider", 2000L, "usd", "Ride 7", KEY)).thenReturn("ch_123");
-        when(rideRepository.markCharged(7L, "ch_123", CHARGED_AT)).thenReturn(charged(7L, "ch_123"));
+        when(rideRepository.markCharged(7L, "ch_123", CHARGED_AT))
+                .thenReturn(new ChargeRecord(charged(7L, "ch_123"), true));
 
         // when
         RideResponse response = tested.create(USER, ORIGIN_IP, KEY, request());
 
         // then
         assertThat(response.stripeChargeId()).isEqualTo("ch_123");
+    }
+
+    @Test
+    @DisplayName("UT create() when the same charge was already recorded by another run should stage no second receipt")
+    void create_whenSameChargeWasAlreadyRecordedByAnotherRun_shouldStageNoSecondReceipt() {
+        // given
+        when(rideRepository.insertIfAbsent(any(NewRide.class))).thenReturn(Optional.empty());
+        when(rideRepository.findByIdempotencyKey(KEY)).thenReturn(Optional.of(uncharged(7L)));
+        when(stripe.charge("cus_rider", 2000L, "usd", "Ride 7", KEY)).thenReturn("ch_123");
+        when(rideRepository.markCharged(7L, "ch_123", CHARGED_AT))
+                .thenReturn(new ChargeRecord(charged(7L, "ch_123"), false));
+
+        // when
+        RideResponse response = tested.create(USER, ORIGIN_IP, KEY, request());
+
+        // then
+        assertThat(response.stripeChargeId()).isEqualTo("ch_123");
+        verifyNoInteractions(outbox);
     }
 
     @Test
@@ -245,13 +272,14 @@ class RideServiceUnitTest {
         // when / then
         assertThatThrownBy(() -> tested.create(USER, ORIGIN_IP, KEY, request())).isSameAs(declined);
         verify(rideRepository, never()).markCharged(anyLong(), anyString(), any());
+        verifyNoInteractions(outbox);
     }
 
     @Test
     @DisplayName("UT constructor when rideRepository is null should throw NullPointerException")
     void constructor_whenRideRepositoryIsNull_shouldThrowNullPointerException() {
         // when / then
-        assertThatThrownBy(() -> new RideService(null, auditRepository, stripe, transaction, fare, objectMapper, clock))
+        assertThatThrownBy(() -> new RideService(null, auditRepository, stripe, outbox, transaction, fare, objectMapper, clock))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("rideRepository cannot be null");
     }
@@ -260,7 +288,7 @@ class RideServiceUnitTest {
     @DisplayName("UT constructor when auditRepository is null should throw NullPointerException")
     void constructor_whenAuditRepositoryIsNull_shouldThrowNullPointerException() {
         // when / then
-        assertThatThrownBy(() -> new RideService(rideRepository, null, stripe, transaction, fare, objectMapper, clock))
+        assertThatThrownBy(() -> new RideService(rideRepository, null, stripe, outbox, transaction, fare, objectMapper, clock))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("auditRepository cannot be null");
     }
@@ -273,6 +301,7 @@ class RideServiceUnitTest {
                 rideRepository,
                 auditRepository,
                 null,
+                outbox,
                 transaction,
                 fare,
                 objectMapper,
@@ -283,10 +312,28 @@ class RideServiceUnitTest {
     }
 
     @Test
+    @DisplayName("UT constructor when outbox is null should throw NullPointerException")
+    void constructor_whenOutboxIsNull_shouldThrowNullPointerException() {
+        // when / then
+        assertThatThrownBy(() -> new RideService(
+                rideRepository,
+                auditRepository,
+                stripe,
+                null,
+                transaction,
+                fare,
+                objectMapper,
+                clock
+        ))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("outbox cannot be null");
+    }
+
+    @Test
     @DisplayName("UT constructor when transaction is null should throw NullPointerException")
     void constructor_whenTransactionIsNull_shouldThrowNullPointerException() {
         // when / then
-        assertThatThrownBy(() -> new RideService(rideRepository, auditRepository, stripe, null, fare, objectMapper, clock))
+        assertThatThrownBy(() -> new RideService(rideRepository, auditRepository, stripe, outbox, null, fare, objectMapper, clock))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("transaction cannot be null");
     }
@@ -299,6 +346,7 @@ class RideServiceUnitTest {
                 rideRepository,
                 auditRepository,
                 stripe,
+                outbox,
                 transaction,
                 null,
                 objectMapper,
@@ -312,7 +360,7 @@ class RideServiceUnitTest {
     @DisplayName("UT constructor when objectMapper is null should throw NullPointerException")
     void constructor_whenObjectMapperIsNull_shouldThrowNullPointerException() {
         // when / then
-        assertThatThrownBy(() -> new RideService(rideRepository, auditRepository, stripe, transaction, fare, null, clock))
+        assertThatThrownBy(() -> new RideService(rideRepository, auditRepository, stripe, outbox, transaction, fare, null, clock))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("objectMapper cannot be null");
     }
@@ -325,6 +373,7 @@ class RideServiceUnitTest {
                 rideRepository,
                 auditRepository,
                 stripe,
+                outbox,
                 transaction,
                 fare,
                 objectMapper,

@@ -1,6 +1,8 @@
 package io.github.idempotency.ride.booking;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.dmitriyiliyov.oncebox.core.outbox.OutboxPublisher;
+import io.github.idempotency.contract.ReceiptJob;
 import io.github.idempotency.ride.audit.AuditAction;
 import io.github.idempotency.ride.audit.AuditRecord;
 import io.github.idempotency.ride.audit.AuditRepository;
@@ -19,7 +21,8 @@ import java.util.UUID;
 
 /**
  * Books a ride and charges its fare in three steps: the ride and its audit record are stored together, Stripe is
- * charged outside any transaction, and the charge is recorded on the ride.
+ * charged outside any transaction, and the charge is recorded on the ride together with the receipt job it owes the
+ * rider, staged in the outbox and published to the receipt service after the commit.
  * <p>
  * Every step can be run again under the same idempotency key without doing its work twice: the ride is found by its
  * key instead of being stored again, Stripe gets the same key and answers with the same charge, and a ride already
@@ -40,6 +43,7 @@ public class RideService {
     private final RideRepository rideRepository;
     private final AuditRepository auditRepository;
     private final StripeChargeClient stripe;
+    private final OutboxPublisher outbox;
     private final TransactionTemplate transaction;
     private final FareProperties fare;
     private final ObjectMapper objectMapper;
@@ -48,6 +52,7 @@ public class RideService {
     public RideService(RideRepository rideRepository,
                        AuditRepository auditRepository,
                        StripeChargeClient stripe,
+                       OutboxPublisher outbox,
                        TransactionTemplate transaction,
                        FareProperties fare,
                        ObjectMapper objectMapper,
@@ -55,6 +60,7 @@ public class RideService {
         this.rideRepository = Objects.requireNonNull(rideRepository, "rideRepository cannot be null");
         this.auditRepository = Objects.requireNonNull(auditRepository, "auditRepository cannot be null");
         this.stripe = Objects.requireNonNull(stripe, "stripe cannot be null");
+        this.outbox = Objects.requireNonNull(outbox, "outbox cannot be null");
         this.transaction = Objects.requireNonNull(transaction, "transaction cannot be null");
         this.fare = Objects.requireNonNull(fare, "fare cannot be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper cannot be null");
@@ -88,9 +94,25 @@ public class RideService {
                 "Ride %d".formatted(ride.id()),
                 idempotencyKey
         );
-        Ride charged = transaction.execute(status -> rideRepository.markCharged(ride.id(), chargeId, clock.instant()));
+        Ride charged = transaction.execute(status -> recordCharge(ride, chargeId));
         log.info("Ride {} booked and chraged as {}", charged.id(), chargeId);
         return RideResponse.from(charged);
+    }
+
+    private Ride recordCharge(Ride ride, String chargeId) {
+        ChargeRecord record = rideRepository.markCharged(ride.id(), chargeId, clock.instant());
+        Ride charged = record.ride();
+        if (record.recorded()) {
+            outbox.publish(ReceiptJob.EVENT_TYPE, new ReceiptJob(
+                    charged.id(),
+                    charged.userId(),
+                    charged.stripeChargeId(),
+                    charged.amount(),
+                    charged.currency(),
+                    charged.chargedAt()
+            ));
+        }
+        return charged;
     }
 
     private Ride findOrBook(User user, String originIp, UUID idempotencyKey, CreateRideRequest request) {

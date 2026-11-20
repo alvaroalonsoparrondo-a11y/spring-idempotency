@@ -121,9 +121,11 @@ class RideRepositoryIntegrationTest {
         Ride stored = tested.insertIfAbsent(newRide(KEY)).orElseThrow();
 
         // when
-        Ride charged = tested.markCharged(stored.id(), "ch_123", CHARGED_AT);
+        ChargeRecord record = tested.markCharged(stored.id(), "ch_123", CHARGED_AT);
 
         // then
+        assertThat(record.recorded()).isTrue();
+        Ride charged = record.ride();
         assertThat(charged.stripeChargeId()).isEqualTo("ch_123");
         assertThat(charged.chargedAt()).isEqualTo(CHARGED_AT);
         assertThat(charged.isCharged()).isTrue();
@@ -135,14 +137,15 @@ class RideRepositoryIntegrationTest {
     void markCharged_whenSameChargeIsRecordedAgain_shouldAnswerRideAsFirstCharged() {
         // given
         Ride stored = tested.insertIfAbsent(newRide(KEY)).orElseThrow();
-        Ride first = tested.markCharged(stored.id(), "ch_123", CHARGED_AT);
+        Ride first = tested.markCharged(stored.id(), "ch_123", CHARGED_AT).ride();
 
         // when
-        Ride again = tested.markCharged(stored.id(), "ch_123", CHARGED_AT.plusSeconds(90));
+        ChargeRecord again = tested.markCharged(stored.id(), "ch_123", CHARGED_AT.plusSeconds(90));
 
         // then
-        assertThat(again).isEqualTo(first);
-        assertThat(again.chargedAt()).isEqualTo(CHARGED_AT);
+        assertThat(again.recorded()).isFalse();
+        assertThat(again.ride()).isEqualTo(first);
+        assertThat(again.ride().chargedAt()).isEqualTo(CHARGED_AT);
     }
 
     @Test

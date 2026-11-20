@@ -4,9 +4,10 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.kafka.KafkaContainer;
 
 /**
- * One PostgreSQL, one Redis and one stripe-mock per test JVM for every test that starts a Spring context: a cached context
+ * One PostgreSQL, one Redis, one Kafka and one stripe-mock per test JVM for every test that starts a Spring context: a cached context
  * outlives the class that created it, so its containers must too.
  */
 public final class TestInfrastructure {
@@ -17,6 +18,8 @@ public final class TestInfrastructure {
     private static final GenericContainer<?> REDIS = new GenericContainer<>(TestImages.REDIS)
             .withExposedPorts(6379)
             .waitingFor(Wait.forListeningPort());
+
+    private static final KafkaContainer KAFKA = new KafkaContainer(TestImages.KAFKA);
 
     private static final GenericContainer<?> STRIPE_MOCK = new GenericContainer<>(TestImages.STRIPE_MOCK)
             .withExposedPorts(TestImages.STRIPE_MOCK_PORT)
@@ -31,6 +34,7 @@ public final class TestInfrastructure {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
+        registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
         registry.add("stripe.api-key", () -> "sk_test_123");
         registry.add("stripe.api-base", TestInfrastructure::stripeMockUrl);
     }
@@ -40,12 +44,20 @@ public final class TestInfrastructure {
         return "http://%s:%d".formatted(STRIPE_MOCK.getHost(), STRIPE_MOCK.getMappedPort(TestImages.STRIPE_MOCK_PORT));
     }
 
+    public static String kafkaBootstrapServers() {
+        start();
+        return KAFKA.getBootstrapServers();
+    }
+
     private static synchronized void start() {
         if (!POSTGRES.isRunning()) {
             POSTGRES.start();
         }
         if (!REDIS.isRunning()) {
             REDIS.start();
+        }
+        if (!KAFKA.isRunning()) {
+            KAFKA.start();
         }
         if (!STRIPE_MOCK.isRunning()) {
             STRIPE_MOCK.start();

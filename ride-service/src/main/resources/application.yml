@@ -16,6 +16,8 @@ spring:
       port: ${RIDE_REDIS_PORT:6379}
       password: ${RIDE_REDIS_PASSWORD:}
       timeout: 2s
+  kafka:
+    bootstrap-servers: ${RIDE_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
 idempify:
   schema:
@@ -25,6 +27,22 @@ idempify:
     enabled: true
     type: DISTRIBUTED
     name: ride-service
+
+oncebox:
+  # stuck-event recovery, clean-up and one poller for the receipt jobs
+  thread-pool-size: 3
+  outbox:
+    sender:
+      type: kafka
+    events:
+      ride-receipt:
+        topic: ride-receipts
+        polling:
+          type: adaptive
+          initial-delay: 10s
+          min-fixed-delay: 250ms
+          max-fixed-delay: 10s
+          multiplier: 1.5
 
 stripe:
   api-key: ${STRIPE_API_KEY}

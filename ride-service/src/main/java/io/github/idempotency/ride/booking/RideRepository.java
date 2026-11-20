@@ -70,23 +70,31 @@ public class RideRepository {
     /**
      * Records the charge on a ride. Recording the same charge again changes nothing and answers the ride as it is:
      * two runs of one booking - the second taking over after the first one's lock expired - get the same charge from
-     * Stripe, and whichever records it second must not fail.
+     * Stripe, and whichever records it second must not fail. The outcome tells the two apart, so what follows the
+     * charge happens once.
      *
      * @return the charged ride, with the time its charge was first recorded
      * @throws IllegalStateException when the ride does not exist or carries another charge
      */
-    Ride markCharged(long rideId, String stripeChargeId, Instant chargedAt) {
-        return jdbc.sql("""
-                        UPDATE rides
-                        SET stripe_charge_id = :chargeId, charged_at = COALESCE(charged_at, :chargedAt)
-                        WHERE id = :id AND (stripe_charge_id IS NULL OR stripe_charge_id = :chargeId)
+    ChargeRecord markCharged(long rideId, String stripeChargeId, Instant chargedAt) {
+        Optional<Ride> recorded = jdbc.sql("""
+                        UPDATE rides SET stripe_charge_id = :chargeId, charged_at = :chargedAt
+                        WHERE id = :id AND stripe_charge_id IS NULL
                         RETURNING
                         """ + COLUMNS)
                 .param("chargeId", stripeChargeId)
                 .param("chargedAt", Timestamp.from(chargedAt))
                 .param("id", rideId)
                 .query(ROW_MAPPER)
+                .optional();
+        if (recorded.isPresent()) {
+            return new ChargeRecord(recorded.get(), true);
+        }
+        return jdbc.sql("SELECT " + COLUMNS + " FROM rides WHERE id = ? AND stripe_charge_id = ?")
+                .params(rideId, stripeChargeId)
+                .query(ROW_MAPPER)
                 .optional()
+                .map(ride -> new ChargeRecord(ride, false))
                 .orElseThrow(() -> new IllegalStateException(
                         "Ride %d is missing or carries another charge".formatted(rideId)
                 ));

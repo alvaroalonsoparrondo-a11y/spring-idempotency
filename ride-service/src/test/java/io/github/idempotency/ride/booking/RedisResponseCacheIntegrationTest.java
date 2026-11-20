@@ -54,7 +54,7 @@ class RedisResponseCacheIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        jdbc.sql("TRUNCATE idempotent_operations, audit_records, rides, users RESTART IDENTITY CASCADE").update();
+        jdbc.sql("TRUNCATE outbox_events, idempotent_operations, audit_records, rides, users RESTART IDENTITY CASCADE").update();
         jdbc.sql("INSERT INTO users (email, stripe_customer_id) VALUES (?, 'cus_rider')").param(RIDER).update();
         redis.getRequiredConnectionFactory().getConnection().serverCommands().flushAll();
     }
