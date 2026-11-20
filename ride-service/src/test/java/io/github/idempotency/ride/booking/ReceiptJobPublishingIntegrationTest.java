@@ -70,7 +70,9 @@ class ReceiptJobPublishingIntegrationTest {
         consumer = new KafkaConsumer<>(Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, TestInfrastructure.kafkaBootstrapServers(),
                 ConsumerConfig.GROUP_ID_CONFIG, "receipt-test-" + UUID.randomUUID(),
-                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest",
+                // from the start: a position reset to the end is taken lazily and can land after this test's job;
+                // the records of other tests are filtered out below
+                ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest",
                 ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class,
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class
         ));
@@ -97,7 +99,11 @@ class ReceiptJobPublishingIntegrationTest {
 
         // when
         awaitAtMost().untilAsserted(() -> {
-            consumer.poll(Duration.ofMillis(200)).forEach(received::add);
+            consumer.poll(Duration.ofMillis(200)).forEach(record -> {
+                if (eventId.equals(header(record, "oncebox_event_id"))) {
+                    received.add(record);
+                }
+            });
             assertThat(received).hasSize(1);
         });
 
@@ -115,10 +121,10 @@ class ReceiptJobPublishingIntegrationTest {
 
     @Test
     @DisplayName("IT publish when a booking is repeated under its key should deliver one receipt job")
-    void publish_whenBookingIsRepeatedUnderItsKey_shouldDeliverOneReceiptJob() {
+    void publish_whenBookingIsRepeatedUnderItsKey_shouldDeliverOneReceiptJob() throws Exception {
         // given
         UUID key = UUID.randomUUID();
-        post(key);
+        long rideId = objectMapper.readTree(post(key).getBody()).get("id").asLong();
         post(key);
         List<ConsumerRecord<String, String>> received = new ArrayList<>();
 
@@ -126,7 +132,12 @@ class ReceiptJobPublishingIntegrationTest {
         awaitAtMost().untilAsserted(() -> assertThat(
                 jdbc.sql("SELECT status FROM outbox_events").query(String.class).list()
         ).containsExactly("PROCESSED"));
-        consumer.poll(Duration.ofSeconds(2)).forEach(received::add);
+        awaitAtMost().untilAsserted(() -> {
+            collectJobsOf(rideId, received);
+            assertThat(received).isNotEmpty();
+        });
+        // a second job, if one were sent, would arrive right behind the first
+        collectJobsOf(rideId, received);
 
         // then
         assertThat(received).hasSize(1);
@@ -138,6 +149,14 @@ class ReceiptJobPublishingIntegrationTest {
         headers.set(HttpHeaders.AUTHORIZATION, RIDER);
         headers.set("Idempotency-Key", key.toString());
         return rest.postForEntity("/api/v1/rides", new HttpEntity<>(BODY, headers), String.class);
+    }
+
+    private void collectJobsOf(long rideId, List<ConsumerRecord<String, String>> received) throws Exception {
+        for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofSeconds(1))) {
+            if (objectMapper.readTree(record.value()).get("rideId").asLong() == rideId) {
+                received.add(record);
+            }
+        }
     }
 
     private static String header(ConsumerRecord<String, String> record, String name) {
