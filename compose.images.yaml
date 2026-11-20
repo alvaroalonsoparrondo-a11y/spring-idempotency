@@ -1,0 +1,11 @@
+# Runs the published images instead of building from source, as the Quick Start does:
+#   docker compose -f compose.yaml -f compose.images.yaml --profile apps up -d
+# VERSION picks the release, latest by default.
+services:
+  ride-service:
+    image: ghcr.io/dmitriy-iliyov/spring-idempotency/ride-service:${VERSION:-latest}
+    pull_policy: always
+
+  receipt-service:
+    image: ghcr.io/dmitriy-iliyov/spring-idempotency/receipt-service:${VERSION:-latest}
+    pull_policy: always
