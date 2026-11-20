@@ -6,6 +6,8 @@ public final class TestImages {
 
     public static final DockerImageName POSTGRES = DockerImageName.parse("postgres:17.12-alpine");
 
+    public static final DockerImageName REDIS = DockerImageName.parse("redis:8.8.4-alpine");
+
     public static final DockerImageName STRIPE_MOCK = DockerImageName.parse("stripe/stripe-mock:v0.205.0");
 
     /**

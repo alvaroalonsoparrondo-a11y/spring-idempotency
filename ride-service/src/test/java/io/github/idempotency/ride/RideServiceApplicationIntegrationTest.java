@@ -1,5 +1,8 @@
 package io.github.idempotency.ride;
 
+import io.github.dmitriyiliyov.idempify.cache.redis.RedisCacheResponseRepositoryDecorator;
+import io.github.dmitriyiliyov.idempify.core.response.ResponseRepository;
+import io.github.dmitriyiliyov.idempify.core.response.ResponseRepositoryWrapper;
 import io.github.idempotency.ride.support.RequiresDocker;
 import io.github.idempotency.ride.support.TestInfrastructure;
 import org.junit.jupiter.api.DisplayName;
@@ -10,7 +13,10 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestConstructor;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 @SpringBootTest
 @RequiresDocker
@@ -18,9 +24,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RideServiceApplicationIntegrationTest {
 
     private final JdbcClient jdbc;
+    private final List<ResponseRepositoryWrapper> responseRepositoryWrappers;
 
-    RideServiceApplicationIntegrationTest(JdbcClient jdbc) {
+    RideServiceApplicationIntegrationTest(JdbcClient jdbc, List<ResponseRepositoryWrapper> responseRepositoryWrappers) {
         this.jdbc = jdbc;
+        this.responseRepositoryWrappers = responseRepositoryWrappers;
     }
 
     @DynamicPropertySource
@@ -43,5 +51,17 @@ class RideServiceApplicationIntegrationTest {
 
         // then
         assertThat(tables).isEqualTo(6L);
+    }
+
+    @Test
+    @DisplayName("IT context when started should put the Redis cache in front of the recorded responses")
+    void context_whenStarted_shouldPutRedisCacheInFrontOfRecordedResponses() {
+        // when
+        List<Object> wrapped = responseRepositoryWrappers.stream()
+                .map(wrapper -> (Object) wrapper.wrap(mock(ResponseRepository.class)))
+                .toList();
+
+        // then
+        assertThat(wrapped).hasAtLeastOneElementOfType(RedisCacheResponseRepositoryDecorator.class);
     }
 }

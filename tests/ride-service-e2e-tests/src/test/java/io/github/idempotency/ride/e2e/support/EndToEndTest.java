@@ -12,7 +12,7 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * The service as it runs in production - its own application class and configuration on a real port - over
- * PostgreSQL and stripe-mock, shared by every end-to-end class. The riders come from the service's seed migration,
+ * PostgreSQL, Redis and stripe-mock, shared by every end-to-end class. The riders come from the service's seed migration,
  * since the API has no way to register one.
  */
 @RequiresDocker
@@ -26,12 +26,17 @@ public abstract class EndToEndTest {
             DockerImageName.parse("postgres:17.12-alpine")
     ).withDatabaseName("rides");
 
+    private static final GenericContainer<?> REDIS = new GenericContainer<>(
+            DockerImageName.parse("redis:8.8.4-alpine")
+    ).withExposedPorts(6379).waitingFor(Wait.forListeningPort());
+
     private static final GenericContainer<?> STRIPE_MOCK = new GenericContainer<>(
             DockerImageName.parse("stripe/stripe-mock:v0.205.0")
     ).withExposedPorts(12111).waitingFor(Wait.forListeningPort());
 
     static {
         POSTGRES.start();
+        REDIS.start();
         STRIPE_MOCK.start();
     }
 
@@ -44,6 +49,8 @@ public abstract class EndToEndTest {
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.flyway.locations", () -> "classpath:db/migration,classpath:db/seed");
+        registry.add("spring.data.redis.host", REDIS::getHost);
+        registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
         registry.add("stripe.api-key", () -> "sk_test_123");
         registry.add("stripe.api-base", () -> "http://%s:%d".formatted(
                 STRIPE_MOCK.getHost(),

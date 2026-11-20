@@ -10,10 +10,21 @@ spring:
       connection-timeout: 5000
   flyway:
     locations: classpath:db/migration
+  data:
+    redis:
+      host: ${RIDE_REDIS_HOST:localhost}
+      port: ${RIDE_REDIS_PORT:6379}
+      password: ${RIDE_REDIS_PASSWORD:}
+      timeout: 2s
 
 idempify:
   schema:
     mode: FLYWAY
+  cache:
+    # recorded responses are served from Redis first; a miss falls through to the operation's own row
+    enabled: true
+    type: DISTRIBUTED
+    name: ride-service
 
 stripe:
   api-key: ${STRIPE_API_KEY}
