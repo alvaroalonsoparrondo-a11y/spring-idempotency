@@ -100,6 +100,29 @@ class PostRideIntegrationTest {
     }
 
     @Test
+    @DisplayName("IT post() when repeated should replay the first answer under the repeat's own correlation id")
+    void post_whenRepeated_shouldReplayFirstAnswerUnderRepeatOwnCorrelationId() {
+        // given
+        String key = UUID.randomUUID().toString();
+        HttpHeaders first = headers(key);
+        first.set("X-Correlation-Id", "first-request");
+        rest.postForEntity("/api/v1/rides", new HttpEntity<>(BODY, first), String.class);
+        HttpHeaders repeat = headers(key);
+        repeat.set("X-Correlation-Id", "repeat-request");
+
+        // when
+        ResponseEntity<String> response = rest.postForEntity(
+                "/api/v1/rides",
+                new HttpEntity<>(BODY, repeat),
+                String.class
+        );
+
+        // then
+        assertThat(response.getStatusCode()).as(response.getBody()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getHeaders().get("X-Correlation-Id")).containsExactly("repeat-request");
+    }
+
+    @Test
     @DisplayName("IT post() when a ride is charged should stage one receipt job for it, also when repeated")
     void post_whenRideIsCharged_shouldStageOneReceiptJobForItAlsoWhenRepeated() throws Exception {
         // given
@@ -328,6 +351,14 @@ class PostRideIntegrationTest {
             headers.set("Idempotency-Key", key);
         }
         return rest.postForEntity("/api/v1/rides", new HttpEntity<>(body, headers), String.class);
+    }
+
+    private static HttpHeaders headers(String key) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set(HttpHeaders.AUTHORIZATION, RIDER);
+        headers.set("Idempotency-Key", key);
+        return headers;
     }
 
     private long count(String table) {

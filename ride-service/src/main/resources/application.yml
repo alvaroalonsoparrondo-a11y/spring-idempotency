@@ -35,6 +35,10 @@ idempify:
     name: ride-service
   metrics:
     enabled: true
+  response:
+    # a repeat is answered under its own correlation id, the one its log lines carry, not the first request's
+    excluded-headers:
+      - X-Correlation-Id
 
 oncebox:
   # stuck-event recovery, clean-up, three dead letter jobs and one poller for the receipt jobs
