@@ -29,7 +29,8 @@ public final class ReceiptJobs {
                 ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class,
                 ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class
         ))) {
-            ProducerRecord<String, String> record = new ProducerRecord<>("ride-receipts", payload);
+            // one partition for every job a test publishes, so they are consumed in the order published
+            ProducerRecord<String, String> record = new ProducerRecord<>("ride-receipts", 0, null, payload);
             record.headers().add("oncebox_event_id", eventId.toString().getBytes(StandardCharsets.UTF_8));
             record.headers().add("oncebox_event_type", ReceiptJob.EVENT_TYPE.getBytes(StandardCharsets.UTF_8));
             record.headers().add(

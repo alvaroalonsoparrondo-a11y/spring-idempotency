@@ -30,3 +30,9 @@ oncebox:
       type: kafka
     mappings:
       ride-receipt: io.github.idempotency.contract.ReceiptJob
+
+receipts:
+  topic:
+    # the same as ride-service's, which creates the topic too
+    partitions: ${RECEIPT_TOPIC_PARTITIONS:3}
+    replicas: ${RECEIPT_TOPIC_REPLICAS:1}

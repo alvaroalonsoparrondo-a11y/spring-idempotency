@@ -3,9 +3,15 @@ package io.github.idempotency.receipt;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.idempotency.receipt.support.ReceiptJobs;
 import io.github.idempotency.receipt.support.ReceiptServiceIntegrationTest;
+import io.github.idempotency.receipt.support.TestInfrastructure;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.TopicDescription;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static io.github.idempotency.receipt.support.Waits.awaitAtMost;
@@ -24,7 +30,7 @@ class ReceiptServiceApplicationIntegrationTest extends ReceiptServiceIntegration
         // given
         UUID eventId = UUID.randomUUID();
         String payload = objectMapper.writeValueAsString(ReceiptJobs.job(7L));
-        // the topic has one partition, so once the marker is handled both deliveries before it are too
+        // the same partition for all three, so once the marker is handled both deliveries before it are too
         UUID marker = UUID.randomUUID();
 
         // when
@@ -39,5 +45,21 @@ class ReceiptServiceApplicationIntegrationTest extends ReceiptServiceIntegration
         verify(receiptSender, times(1)).send(ReceiptJobs.job(7L));
         verify(receiptSender, times(2)).send(any());
         assertThat(jdbc.sql("SELECT ride_id FROM receipts").query(Long.class).list()).containsExactlyInAnyOrder(7L, 8L);
+    }
+
+    @Test
+    @DisplayName("IT context when started should create the receipt topic and its dead letter topic with their partitions")
+    void context_whenStarted_shouldCreateReceiptTopicAndDeadLetterTopicWithPartitions() throws Exception {
+        // when
+        Map<String, TopicDescription> topics;
+        try (AdminClient admin = AdminClient.create(Map.of(
+                AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, TestInfrastructure.kafkaBootstrapServers()
+        ))) {
+            topics = admin.describeTopics(List.of("ride-receipts", "ride-receipts-dlt")).allTopicNames().get();
+        }
+
+        // then
+        assertThat(topics.get("ride-receipts").partitions()).hasSize(3);
+        assertThat(topics.get("ride-receipts-dlt").partitions()).hasSize(3);
     }
 }
