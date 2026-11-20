@@ -33,6 +33,8 @@ idempify:
     enabled: true
     type: DISTRIBUTED
     name: ride-service
+  metrics:
+    enabled: true
 
 oncebox:
   # stuck-event recovery, clean-up, three dead letter jobs and one poller for the receipt jobs
@@ -42,6 +44,11 @@ oncebox:
       type: kafka
     dlq:
       enabled: true
+    metrics:
+      enabled: true
+      gauge:
+        # the gauges count rows in the database; cached, a scrape costs no query most of the time
+        enabled: true
     events:
       ride-receipt:
         topic: ride-receipts
@@ -61,6 +68,19 @@ rides:
 stripe:
   api-key: ${STRIPE_API_KEY}
   api-base: ${STRIPE_API_BASE:https://api.stripe.com}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 logging:
   structured:
