@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: receipt-service
+  datasource:
+    url: ${RECEIPT_DB_URL:jdbc:postgresql://localhost:5432/receipts}
+    username: ${RECEIPT_DB_USERNAME:receipts}
+    password: ${RECEIPT_DB_PASSWORD:receipts}
+  kafka:
+    bootstrap-servers: ${RECEIPT_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+      # offsets are committed after the listener returns, never on a timer before a job is handled
+      enable-auto-commit: false
+    producer:
+      # dead letters are published only once every in-sync replica has them
+      acks: all
+      properties:
+        enable.idempotence: true
+
+oncebox:
+  # the inbox clean-up
+  thread-pool-size: 1
+  outbox:
+    enabled: false
+  inbox:
+    enabled: true
+    source:
+      type: kafka
+    mappings:
+      ride-receipt: io.github.idempotency.contract.ReceiptJob
