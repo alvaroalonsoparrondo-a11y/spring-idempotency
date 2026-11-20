@@ -19,6 +19,23 @@ spring:
       properties:
         enable.idempotence: true
 
+server:
+  # next to ride-service's 8080 on one machine
+  port: ${RECEIPT_SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 logging:
   structured:
     # one JSON object per line in Elastic Common Schema, the receipt's ride, rider and charge as fields of their own
@@ -36,6 +53,8 @@ oncebox:
       type: kafka
     mappings:
       ride-receipt: io.github.idempotency.contract.ReceiptJob
+    metrics:
+      enabled: true
 
 receipts:
   topic:

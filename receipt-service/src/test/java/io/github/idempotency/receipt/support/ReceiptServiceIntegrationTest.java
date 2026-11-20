@@ -4,7 +4,9 @@ import io.github.idempotency.receipt.sending.ReceiptRepository;
 import io.github.idempotency.receipt.sending.ReceiptSender;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -20,7 +22,9 @@ import static org.mockito.Mockito.reset;
  * The sender and the repository are spies - the real beans, counted, and made to fail where a case needs it.
  */
 @RequiresDocker
-@SpringBootTest
+// tests leave metrics export off unless asked; the Prometheus endpoint is part of what is tested
+@AutoConfigureObservability
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class ReceiptServiceIntegrationTest {
 
     @MockitoSpyBean
@@ -31,6 +35,9 @@ public abstract class ReceiptServiceIntegrationTest {
 
     @Autowired
     protected JdbcClient jdbc;
+
+    @Autowired
+    protected TestRestTemplate rest;
 
     @DynamicPropertySource
     static void infrastructure(DynamicPropertyRegistry registry) {
