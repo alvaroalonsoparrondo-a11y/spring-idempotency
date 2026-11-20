@@ -1,6 +1,7 @@
 # The infrastructure of both services:      docker compose up -d
 # ... and both services on top of it:      docker compose --profile apps up -d --build
-# ... watched by Prometheus as well:        docker compose --profile apps --profile observability up -d --build
+# ... watched by Prometheus and Grafana:    docker compose --profile apps --profile observability up -d --build
+#     Grafana at http://localhost:3000 (admin / admin), dashboards in the spring-idempotency folder
 name: spring-idempotency
 
 services:
@@ -101,6 +102,21 @@ services:
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
+
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:13.2.6
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
 
 volumes:
   postgres-data:
