@@ -1,0 +1,11 @@
+# Tests that start the service: infrastructure comes from Testcontainers, see TestInfrastructure.
+stripe:
+  api-key: sk_test_123
+
+oncebox:
+  outbox:
+    events:
+      ride-receipt:
+        polling:
+          # the shipped delay before the first poll is ten seconds; tests would only wait it out
+          initial-delay: 500ms

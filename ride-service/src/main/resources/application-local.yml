@@ -1,3 +1,4 @@
+# On a developer machine against the compose stack's published ports, with the seed riders.
 spring:
   flyway:
     locations: classpath:db/migration,classpath:db/seed
@@ -6,3 +7,11 @@ stripe:
   # stripe-mock from the compose file accepts any test key
   api-key: sk_test_123
   api-base: http://localhost:12111
+
+oncebox:
+  outbox:
+    events:
+      ride-receipt:
+        polling:
+          # receipts within a second of a booking instead of the production ten
+          initial-delay: 1s

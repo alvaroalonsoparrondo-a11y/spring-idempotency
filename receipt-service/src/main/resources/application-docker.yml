@@ -1,0 +1,6 @@
+# Inside the compose network: every dependency is reached by the name of its compose service.
+spring:
+  datasource:
+    url: ${RECEIPT_DB_URL:jdbc:postgresql://postgres:5432/receipts}
+  kafka:
+    bootstrap-servers: ${RECEIPT_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}

@@ -35,9 +35,6 @@ public final class TestInfrastructure {
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
         registry.add("spring.kafka.bootstrap-servers", KAFKA::getBootstrapServers);
-        // the shipped delay before the first poll is ten seconds; tests would only wait it out
-        registry.add("oncebox.outbox.events.ride-receipt.polling.initial-delay", () -> "500ms");
-        registry.add("stripe.api-key", () -> "sk_test_123");
         registry.add("stripe.api-base", TestInfrastructure::stripeMockUrl);
     }
 
